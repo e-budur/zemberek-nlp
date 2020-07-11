@@ -11,10 +11,11 @@ import java.util.List;
 import java.util.Random;
 import java.util.stream.Collectors;
 import zemberek.core.SpaceTabTokenizer;
+import zemberek.core.collections.IntIntMap;
 import zemberek.core.collections.IntVector;
-import zemberek.core.collections.UIntIntMap;
 import zemberek.core.logging.Log;
 import zemberek.core.text.BlockTextLoader;
+import zemberek.core.text.TextChunk;
 
 class Dictionary {
 
@@ -36,7 +37,7 @@ class Dictionary {
   private int nlabels_;
   private long ntokens_;
   private int pruneidx_size_ = -1;
-  private UIntIntMap pruneidx_ = new UIntIntMap();
+  private IntIntMap pruneidx_ = new IntIntMap();
 
   private Dictionary(Args args) {
     args_ = args;
@@ -62,6 +63,13 @@ class Dictionary {
     return h & 0x7fff_ffff;
   }
 
+  // original fasttext code uses this code:
+  // uint32_t h = 2166136261;
+  // for (size_t i = 0; i < str.size(); i++) {
+  //   h = h ^ uint32_t(int8_t(str[i]));
+  //   h = h * 16777619;
+  // }
+  //
   static int hash(String str, int start, int end) {
     int h = 0x811C_9DC5;
     for (int i = start; i < end; i++) {
@@ -77,12 +85,12 @@ class Dictionary {
     Dictionary dictionary = new Dictionary(args);
 
     Log.info("Loading text.");
-    BlockTextLoader loader = new BlockTextLoader(file, 100_000);
+    BlockTextLoader loader = BlockTextLoader.fromPath(file, 100_000);
     SpaceTabTokenizer tokenizer = new SpaceTabTokenizer();
 
     int blockCounter = 1;
 
-    for (List<String> lines : loader) {
+    for (TextChunk lines : loader) {
       for (String line : lines) {
         List<String> split = tokenizer.splitToList(line);
         split.add(EOS);
@@ -288,8 +296,8 @@ class Dictionary {
   private int[] computeSubWords(String word, int wordId) {
     int[] hashes = args_.subWordHashProvider.getHashes(word, wordId);
     IntVector k = new IntVector();
-    for (int i = 0; i < hashes.length; i++) {
-      pushHash(k, hashes[i] % args_.bucket);
+    for (int hash : hashes) {
+      pushHash(k, hash % args_.bucket);
     }
     return k.copyOf();
   }

@@ -18,6 +18,7 @@ import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runners.MethodSorters;
 import zemberek.core.logging.Log;
+import zemberek.core.text.TextIO;
 import zemberek.lm.NgramLanguageModel;
 import zemberek.lm.compression.SmoothLm;
 import zemberek.morphology.TurkishMorphology;
@@ -56,8 +57,10 @@ public class TurkishSpellCheckerTest {
 
   @Test
   public void checkProperNounsTest() throws IOException {
-    TurkishMorphology morphology = TurkishMorphology.builder().disableCache()
-        .addDictionaryLines("Ankara", "Iphone [Pr:ayfon]", "Google [Pr:gugıl]").build();
+    TurkishMorphology morphology = TurkishMorphology.builder()
+        .disableCache()
+        .setLexicon("Ankara", "Iphone [Pr:ayfon]", "Google [Pr:gugıl]")
+        .build();
     TurkishSpellChecker spellChecker = new TurkishSpellChecker(morphology);
 
     String[] correct = {"Ankara", "ANKARA", "Ankara'da", "ANKARA'DA", "ANKARA'da",
@@ -76,8 +79,9 @@ public class TurkishSpellCheckerTest {
   //TODO: check for ordinals.
   @Test
   public void formatNumbersTest() throws IOException {
-    TurkishMorphology morphology = TurkishMorphology.builder().disableCache()
-        .addDictionaryLines("bir [P:Num]", "dört [P:Num;A:Voicing]", "üç [P:Num]", "beş [P:Num]")
+    TurkishMorphology morphology = TurkishMorphology.builder()
+        .disableCache()
+        .setLexicon("bir [P:Num]", "dört [P:Num;A:Voicing]", "üç [P:Num]", "beş [P:Num]")
         .build();
 
     TurkishSpellChecker spellChecker = new TurkishSpellChecker(morphology);
@@ -106,13 +110,37 @@ public class TurkishSpellCheckerTest {
   @Ignore("Slow. Uses actual data.")
   public void suggestWord1() throws Exception {
     TurkishMorphology morphology = TurkishMorphology.builder()
-        .addDictionaryLines("Türkiye", "Bayram").build();
+        .setLexicon("Türkiye", "Bayram").build();
     List<String> endings = Lists.newArrayList("ında", "de");
     StemEndingGraph graph = new StemEndingGraph(morphology, endings);
     TurkishSpellChecker spellChecker = new TurkishSpellChecker(morphology, graph.stemGraph);
     NgramLanguageModel lm = getLm("lm-unigram.slm");
     check(spellChecker, lm, "Türkiye'de", "Türkiye'de");
     // TODO: "Bayramı'nda" fails.
+  }
+
+  @Test
+  public void suggestVerb1() {
+    TurkishMorphology morphology = TurkishMorphology.builder().setLexicon("okumak").build();
+
+    List<String> endings = Lists.newArrayList("dum");
+    StemEndingGraph graph = new StemEndingGraph(morphology, endings);
+    TurkishSpellChecker spellChecker = new TurkishSpellChecker(morphology, graph.stemGraph);
+
+    List<String> res = spellChecker.suggestForWord("okudm");
+    Assert.assertTrue(res.contains("okudum"));
+  }
+
+
+  @Test
+  public void checkVerb1() {
+    TurkishMorphology morphology = TurkishMorphology.builder().setLexicon("okumak").build();
+
+    List<String> endings = Lists.newArrayList("dum");
+    StemEndingGraph graph = new StemEndingGraph(morphology, endings);
+    TurkishSpellChecker spellChecker = new TurkishSpellChecker(morphology, graph.stemGraph);
+
+    Assert.assertTrue(spellChecker.check("okudum"));
   }
 
   private void check(TurkishSpellChecker spellChecker, NgramLanguageModel lm, String input,
@@ -128,6 +156,7 @@ public class TurkishSpellCheckerTest {
     CharacterGraph graph = new CharacterGraph();
     Path r = Paths.get("../data/zemberek-oflazer/oflazer-zemberek-parsed.txt");
     List<String> words = Files.readAllLines(r, StandardCharsets.UTF_8).subList(0, 1000_000);
+    Log.info("Total word count = %d", words.size());
     words.forEach(s -> graph.addWord(s, Node.TYPE_WORD));
     TurkishSpellChecker spellChecker = new TurkishSpellChecker(morphology, graph);
     NgramLanguageModel lm = getLm("lm-unigram.slm");
@@ -139,10 +168,7 @@ public class TurkishSpellCheckerTest {
     Log.info("Node count with single connection= %d",
         spellChecker.decoder.getGraph().getAllNodes(a -> a.getAllChildNodes().size() == 1).size());
 
-    URI uri = ClassLoader.getSystemResource("10000_frequent_turkish_word").toURI();
-    Path r = Paths.get(uri);
-
-    List<String> words = Files.readAllLines(r, StandardCharsets.UTF_8);
+    List<String> words = TextIO.loadLinesFromResource("10000_frequent_turkish_word");
     int c = 0;
     Stopwatch sw = Stopwatch.createStarted();
     for (String word : words) {
@@ -163,13 +189,11 @@ public class TurkishSpellCheckerTest {
     TurkishMorphology morphology = TurkishMorphology.createWithDefaults();
     TurkishSpellChecker spellChecker = new TurkishSpellChecker(morphology);
     NgramLanguageModel lm = getLm("lm-bigram.slm");
-    Path testInput = Paths
-        .get(ClassLoader.getSystemResource("spell-checker-test-small.txt").toURI());
-    List<String> sentences = Files.readAllLines(testInput, StandardCharsets.UTF_8);
+    List<String> sentences = TextIO.loadLinesFromResource("spell-checker-test-small.txt");
     try (PrintWriter pw = new PrintWriter("bigram-test-result.txt")) {
       for (String sentence : sentences) {
         pw.println(sentence);
-        List<String> input = spellChecker.tokenizeForSpelling(sentence);
+        List<String> input = TurkishSpellChecker.tokenizeForSpelling(sentence);
         for (int i = 0; i < input.size(); i++) {
           String left = i == 0 ? null : input.get(i - 1);
           String right = i == input.size() - 1 ? null : input.get(i + 1);

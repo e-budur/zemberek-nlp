@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import zemberek.core.io.IOs;
 import zemberek.core.io.KeyValueReader;
@@ -15,7 +16,6 @@ import zemberek.core.text.Regexps;
 
 public class TurkishNumbers {
 
-  public static final String BUCUK = "buçuk";
   public static final long MAX_NUMBER = 999999999999999999L;
   public static final long MIN_NUMBER = -999999999999999999L;
   private static Map<String, Long> stringToNumber = new HashMap<>();
@@ -52,6 +52,7 @@ public class TurkishNumbers {
 
     for (Long s : NUMBER_TABLE.keySet()) {
       stringToNumber.put(NUMBER_TABLE.get(s), s);
+      // TODO: we should not assume "atmış" -> "altmış"
       stringToNumber.put("atmış", 60L);
     }
 
@@ -66,36 +67,11 @@ public class TurkishNumbers {
     }
   }
 
-  public static final String SIFIR = NUMBER_TABLE.get(0L);
-  public static final String BIR = NUMBER_TABLE.get(1L);
-  public static final String IKI = NUMBER_TABLE.get(2L);
-  public static final String UC = NUMBER_TABLE.get(3L);
-  public static final String DORT = NUMBER_TABLE.get(4L);
-  public static final String BES = NUMBER_TABLE.get(5L);
-  public static final String ALTI = NUMBER_TABLE.get(6L);
-  public static final String YEDI = NUMBER_TABLE.get(7L);
-  public static final String SEKIZ = NUMBER_TABLE.get(8L);
-  public static final String DOKUZ = NUMBER_TABLE.get(9L);
-  public static final String ON = NUMBER_TABLE.get(10L);
-  public static final String YIRMI = NUMBER_TABLE.get(20L);
-  public static final String OTUZ = NUMBER_TABLE.get(30L);
-  public static final String KIRK = NUMBER_TABLE.get(40L);
-  public static final String ELLI = NUMBER_TABLE.get(50L);
-  public static final String ATMIS = NUMBER_TABLE.get(60L);
-  public static final String YETMIS = NUMBER_TABLE.get(70L);
-  public static final String SEKSEN = NUMBER_TABLE.get(80L);
-  public static final String DOKSAN = NUMBER_TABLE.get(90L);
-  public static final String YUZ = NUMBER_TABLE.get(100L);
-  public static final String BIN = NUMBER_TABLE.get(1000L);
-  public static final String MILYON = NUMBER_TABLE.get(1000000L);
-  public static final String MILYAR = NUMBER_TABLE.get(1000000000L);
-  public static final String TRILYON = NUMBER_TABLE.get(1000000000000L);
-  public static final String KATRILYON = NUMBER_TABLE.get(1000000000000000L);
-  private static String singleDigitNumbers[] = {"", BIR, IKI, UC, DORT, BES, ALTI, YEDI, SEKIZ,
-      DOKUZ};
-  private static String tenToNinety[] = {"", ON, YIRMI, OTUZ, KIRK, ELLI, ATMIS, YETMIS, SEKSEN,
-      DOKSAN};
-  private static String thousands[] = {"", BIN, MILYON, MILYAR, TRILYON, KATRILYON};
+  private static String singleDigitNumbers[] = {"", "bir", "iki", "üç", "dört", "beş", "altı",
+      "yedi", "sekiz", "dokuz"};
+  private static String tenToNinety[] = {"", "on", "yirmi", "otuz", "kırk", "elli", "altmış",
+      "yetmiş", "seksen", "doksan"};
+  private static String thousands[] = {"", "bin", "milyon", "milyar", "trilyon", "katrilyon"};
   private static Pattern NUMBER_SEPARATION = Pattern.compile("[0-9]+|[^0-9 ]+");
   private static Pattern NOT_NUMBER = Pattern.compile("[^0-9]");
   private static Pattern NUMBER = Pattern.compile("[0-9]");
@@ -117,7 +93,7 @@ public class TurkishNumbers {
     int singleDigit = threeDigitNumber % 10;
 
     if (hundreds != 0) {
-      sonuc = YUZ;
+      sonuc = "yüz";
     }
     if (hundreds > 1) {
       sonuc = singleDigitNumbers[hundreds] + " " + sonuc;
@@ -131,16 +107,16 @@ public class TurkishNumbers {
   }
 
   /**
-   * returns the Turkish representation of the input. if negative "eksi" stirng is prepended.
+   * returns the Turkish representation of the input. if negative "eksi" string is prepended.
    *
    * @param input: input. must be between (including both) -999999999999999999L to
    * 999999999999999999L
-   * @return Turkish representation of the input. if negative "eksi" stirng is prepended.
+   * @return Turkish representation of the input. if negative "eksi" string is prepended.
    * @throws IllegalArgumentException if input value is too low or high.
    */
   public static String convertToString(long input) {
     if (input == 0) {
-      return SIFIR;
+      return "sıfır";
     }
     if (input < MIN_NUMBER || input > MAX_NUMBER) {
       throw new IllegalArgumentException("number is out of bounds:" + input);
@@ -175,32 +151,30 @@ public class TurkishNumbers {
     if (input.startsWith("+")) {
       input = input.substring(1);
     }
-    StringBuilder sb = new StringBuilder();
+    List<String> sb = new ArrayList<>();
     int i;
     for (i = 0; i < input.length(); i++) {
       if (input.charAt(i) == '0') {
-        sb.append(" ").append(SIFIR).append(" ");
+        sb.add("sıfır");
       } else {
         break;
       }
     }
     String rest = input.substring(i);
-    if (rest.length() == 0) {
-      return sb.toString().trim();
+    if (rest.length() > 0) {
+      sb.add(convertToString(Long.parseLong(rest)));
     }
 
-    return (Strings
-        .whiteSpacesToSingleSpace(sb.toString() + " " + convertToString(Long.parseLong(rest))))
-        .trim();
+    return String.join(" ", sb);
   }
 
   /**
-   * return the value of a single key number value. those values are limited.
-   * key should not contain any spaces and must be in lowercase.
+   * Returns the value of a single word number value. those values are limited. Word should not
+   * contain any spaces and must be in lowercase.
    *
    * @param word the Turkish representation of a single key number string.
    * @return the
-   * @throws IllegalArgumentException if key is not a number.
+   * @throws IllegalArgumentException if word is not a number.
    */
   public static long singleWordNumberValue(String word) {
     if (!stringToNumber.containsKey(word)) {
@@ -211,8 +185,10 @@ public class TurkishNumbers {
   }
 
   /**
-   * replaces all number strings with actual numbers.
-   * Such as: ["hello bir on iki nokta otuz beş hello"] -> ["hello 1 10 2 nokta 30 5 hello"]
+   * replaces all number strings with actual numbers. Such as:
+   * <pre>
+   * ["hello bir on iki nokta otuz beş hello"] -> ["hello 1 10 2 nokta 30 5 hello"]
+   * </pre>
    *
    * @param inputSequence a sequence of words.
    * @return same as input but string representations of numbers are replaced with numbers.
@@ -231,7 +207,9 @@ public class TurkishNumbers {
 
   /**
    * seperates connected number texts. such as
+   * <pre>
    * ["oniki","otuzbeş","ikiiii"] -> ["on","iki","otuz","beş","ikiiii"]
+   * </pre>
    *
    * @param inputSequence a sequence of words.
    * @return same list with strings where connected number strings are separated.
@@ -250,7 +228,9 @@ public class TurkishNumbers {
 
   /**
    * seperates connected number texts. such as
+   * <pre>
    * ["oniki","otuzbes","ikiiii"] -> ["on","iki","otuz","bes","ikiiii"]
+   * </pre>
    *
    * @param input a single key.
    * @return same list with strings where connected number strings are separated.
@@ -276,8 +256,36 @@ public class TurkishNumbers {
     return words;
   }
 
+  private static TurkishTextToNumberConverter textToNumber = new TurkishTextToNumberConverter();
+
+  /**
+   * Converts an array of number strings to number, if possible. Returns -1 if conversion is not possible.
+   * <pre>
+   *   "bir" -> 1
+   *   "on", "bir" -> 11
+   *   "bir", "bin" -> -1
+   *   "bir", "armut" -> -1
+   * </pre>
+   * @param words Array of number strings.
+   * @return number representation, or -1 if not possible to convert.
+   */
   public static long convertToNumber(String... words) {
-    return new TurkishTextToNumberConverter().convert(words);
+    return textToNumber.convert(words);
+  }
+
+  /**
+   * Converts a text to number, if possible. Returns -1 if conversion is not possible.
+   * <pre>
+   *   "bir" -> 1
+   *   "on bir" -> 11
+   *   "bir bin" -> -1
+   *   "bir armut" -> -1
+   * </pre>
+   * @param text a string.
+   * @return number representation of input string, or -1 if not possible to convert.
+   */
+  public static long convertToNumber(String text) {
+    return textToNumber.convert(text.split("[ ]+"));
   }
 
   public static String convertOrdinalNumberString(String input) {
@@ -311,6 +319,7 @@ public class TurkishNumbers {
    * A12 -> "A" "12"
    * 1A12'ye -> "1" "A" "12" "'ye"
    * </pre>
+   *
    * @param s input.
    * @return separated list of numerical and non numerical tokens.
    */
@@ -329,4 +338,41 @@ public class TurkishNumbers {
   public static boolean hasOnlyNumber(String s) {
     return !NOT_NUMBER.matcher(s).find();
   }
+
+
+  static final Pattern romanNumeralPattern =
+      Pattern.compile("^(M{0,3})(CM|CD|D?C{0,3})(XC|XL|L?X{0,3})(IX|IV|V?I{0,3})$",
+          Pattern.CASE_INSENSITIVE);
+
+  /**
+   * Convert a roman numeral to decimal numbers. Copied from public domain source
+   * (https://stackoverflow.com/a/19392801).
+   *
+   * @param s roman numeral
+   * @return decimal equivalent. if it cannot be converted, -1.
+   */
+  public static int romanToDecimal(String s) {
+    if (s == null ||
+        s.isEmpty() ||
+        !romanNumeralPattern.matcher(s).matches()) {
+      return -1;
+    }
+
+    final Matcher matcher = Pattern.compile("M|CM|D|CD|C|XC|L|XL|X|IX|V|IV|I").matcher(s);
+    final int[] decimalValues = {1000, 900, 500, 400, 100, 90, 50, 40, 10, 9, 5, 4, 1};
+    final String[] romanNumerals = {"M", "CM", "D", "CD", "C", "XC", "L", "XL", "X", "IX", "V",
+        "IV", "I"};
+    int result = 0;
+
+    while (matcher.find()) {
+      for (int i = 0; i < romanNumerals.length; i++) {
+        if (romanNumerals[i].equals(matcher.group(0))) {
+          result += decimalValues[i];
+        }
+      }
+    }
+
+    return result;
+  }
+
 }

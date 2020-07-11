@@ -26,7 +26,7 @@ public class WebDocument {
   String category;
   String title;
   long hash;
-  List<String> lines = new ArrayList<>();
+  List<String> lines;
 
   public WebDocument(String source,
       String id,
@@ -67,7 +67,7 @@ public class WebDocument {
   private static String getAttribute(Pattern pattern, String content) {
     String str = Regexps.firstMatch(pattern, content, 2);
     str = str == null ? "" : str.replace('\"', ' ').trim();
-    return TextUtil.convertAmpresandStrings(str);
+    return TextUtil.convertAmpersandStrings(str);
   }
 
   public int contentLength() {

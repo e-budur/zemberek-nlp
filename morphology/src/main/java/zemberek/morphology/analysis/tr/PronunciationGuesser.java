@@ -50,7 +50,9 @@ public class PronunciationGuesser {
           sb.append(turkishLetterProns.get(key));
         }
       } else {
-        Log.warn("Cannot guess pronunciation of letter [" + key + "] in :[" + w + "]");
+        if(Log.isDebug()) {
+          Log.debug("Cannot guess pronunciation of letter [" + key + "] in :[" + w + "]");
+        }
       }
     }
     return sb.toString();
@@ -99,11 +101,7 @@ public class PronunciationGuesser {
     return sb.toString();
   }
 
-  private static TurkishSyllableExtractor extractorForAbbrv = new TurkishSyllableExtractor();
-
-  static {
-    extractorForAbbrv.setStrict(true);
-  }
+  private static TurkishSyllableExtractor extractorForAbbrv = TurkishSyllableExtractor.STRICT;
 
   /**
    * Tries to guess turkish abbreviation pronunciation.

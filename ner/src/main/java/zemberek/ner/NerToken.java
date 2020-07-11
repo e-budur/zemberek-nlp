@@ -15,7 +15,7 @@ public class NerToken {
     this.normalized = normalized;
     this.type = type;
     this.position = position;
-    this.tokenId = getTokeId();
+    this.tokenId = getTokenId();
   }
 
   public NerToken(int index, String word, String type, NePosition position) {
@@ -24,7 +24,27 @@ public class NerToken {
     this.normalized = word;
     this.type = type;
     this.position = position;
-    this.tokenId = getTokeId();
+    this.tokenId = getTokenId();
+  }
+
+  public int getIndex() {
+    return index;
+  }
+
+  public String getWord() {
+    return word;
+  }
+
+  public String getNormalized() {
+    return normalized;
+  }
+
+  public String getType() {
+    return type;
+  }
+
+  public NePosition getPosition() {
+    return position;
   }
 
   static NerToken fromTypePositionString(int index, String word, String normalized, String id) {
@@ -40,7 +60,7 @@ public class NerToken {
     return new NerToken(index, word, normalized, type, pos);
   }
 
-  private String getTokeId() {
+  private String getTokenId() {
     if (position == NePosition.OUTSIDE) {
       return "O";
     } else {

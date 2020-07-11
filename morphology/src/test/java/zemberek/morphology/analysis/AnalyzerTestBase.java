@@ -5,23 +5,33 @@ import java.util.List;
 import java.util.function.Predicate;
 import org.junit.Assert;
 import zemberek.morphology.analysis.SingleAnalysis.MorphemeData;
-import zemberek.morphology.morphotactics.TurkishMorphotactics;
 import zemberek.morphology.lexicon.RootLexicon;
 import zemberek.morphology.lexicon.tr.TurkishDictionaryLoader;
+import zemberek.morphology.morphotactics.TurkishMorphotactics;
 
 public class AnalyzerTestBase {
 
+  public static final boolean PRINT_RESULTS_TO_SCREEN = false;
+
   public static TurkishMorphotactics getMorphotactics(String... dictionaryLines) {
-    RootLexicon lexicon = new TurkishDictionaryLoader().load(dictionaryLines);
+    RootLexicon lexicon = TurkishDictionaryLoader.load(dictionaryLines);
     return new TurkishMorphotactics(lexicon);
   }
 
-  static InterpretingAnalyzer getAnalyzer(String... dictionaryLines) {
-    return InterpretingAnalyzer.forDebug(getMorphotactics(dictionaryLines));
+  static RuleBasedAnalyzer getAnalyzer(String... dictionaryLines) {
+    return RuleBasedAnalyzer.forDebug(getMorphotactics(dictionaryLines));
+  }
+
+  static RuleBasedAnalyzer getAnalyzer(TurkishMorphotactics morphotactics) {
+    return RuleBasedAnalyzer.forDebug(morphotactics);
   }
 
   static AnalysisTester getTester(String... dictionaryLines) {
-    return new AnalysisTester(InterpretingAnalyzer.forDebug(getMorphotactics(dictionaryLines)));
+    return new AnalysisTester(RuleBasedAnalyzer.forDebug(getMorphotactics(dictionaryLines)));
+  }
+
+  static AnalysisTester getTester(TurkishMorphotactics morphotactics) {
+    return new AnalysisTester(RuleBasedAnalyzer.forDebug(morphotactics));
   }
 
   boolean containsMorpheme(SingleAnalysis result, String morphemeName) {
@@ -53,12 +63,15 @@ public class AnalyzerTestBase {
 
   static void printAndSort(String input, List<SingleAnalysis> results) {
     results.sort(Comparator.comparing(SingleAnalysis::toString));
+    if (!PRINT_RESULTS_TO_SCREEN) {
+      return;
+    }
     for (SingleAnalysis result : results) {
       System.out.println(input + " = " + result + " = " + formatSurfaceAndLexical(result));
     }
   }
 
-  static void expectFail(InterpretingAnalyzer analyzer, String... words) {
+  static void expectFail(RuleBasedAnalyzer analyzer, String... words) {
     for (String word : words) {
       List<SingleAnalysis> results = analyzer.analyze(word);
       if (results.size() != 0) {
@@ -68,7 +81,7 @@ public class AnalyzerTestBase {
     }
   }
 
-  static void expectSuccess(InterpretingAnalyzer analyzer, String... words) {
+  static void expectSuccess(RuleBasedAnalyzer analyzer, String... words) {
     for (String word : words) {
       List<SingleAnalysis> results = analyzer.analyze(word);
       if (results.size() == 0) {
@@ -80,7 +93,7 @@ public class AnalyzerTestBase {
     }
   }
 
-  static void expectSuccess(InterpretingAnalyzer analyzer, int solutionCount, String... words) {
+  static void expectSuccess(RuleBasedAnalyzer analyzer, int solutionCount, String... words) {
     for (String word : words) {
       List<SingleAnalysis> results = analyzer.analyze(word);
       if (results.size() != solutionCount) {
@@ -93,7 +106,7 @@ public class AnalyzerTestBase {
     }
   }
 
-  static SingleAnalysis getSingleAnalysis(InterpretingAnalyzer analyzer, String input) {
+  static SingleAnalysis getSingleAnalysis(RuleBasedAnalyzer analyzer, String input) {
     List<SingleAnalysis> results = analyzer.analyze(input);
     if (results.size() != 1) {
       printDebug(analyzer, input);
@@ -109,7 +122,7 @@ public class AnalyzerTestBase {
   }
 
   static List<SingleAnalysis> getMultipleAnalysis(
-      InterpretingAnalyzer analyzer, int count, String input) {
+      RuleBasedAnalyzer analyzer, int count, String input) {
     List<SingleAnalysis> results = analyzer.analyze(input);
     if (results.size() != count) {
       printDebug(analyzer, input);
@@ -124,7 +137,7 @@ public class AnalyzerTestBase {
     return results;
   }
 
-  static List<SingleAnalysis> getMultipleAnalysis(InterpretingAnalyzer analyzer, String input) {
+  static List<SingleAnalysis> getMultipleAnalysis(RuleBasedAnalyzer analyzer, String input) {
     List<SingleAnalysis> results = analyzer.analyze(input);
     if (results.size() == 0) {
       printDebug(analyzer, input);
@@ -136,7 +149,7 @@ public class AnalyzerTestBase {
 
 
   private static void printDebug(
-      InterpretingAnalyzer analyzer,
+      RuleBasedAnalyzer analyzer,
       String input) {
     analyzer.analyze(input);
     AnalysisDebugData debugData = analyzer.getDebugData();
@@ -145,9 +158,9 @@ public class AnalyzerTestBase {
 
   static class AnalysisTester {
 
-    InterpretingAnalyzer analyzer;
+    RuleBasedAnalyzer analyzer;
 
-    public AnalysisTester(InterpretingAnalyzer analyzer) {
+    public AnalysisTester(RuleBasedAnalyzer analyzer) {
       this.analyzer = analyzer;
     }
 

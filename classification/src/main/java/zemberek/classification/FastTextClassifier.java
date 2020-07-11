@@ -31,9 +31,18 @@ public class FastTextClassifier {
     return fastText.test(testPath, k);
   }
 
+  public EvaluationResult evaluate(Path testPath, int k, float threshold) throws IOException {
+    return fastText.test(testPath, k, threshold);
+  }
+
   public List<ScoredItem<String>> predict(String input, int k) {
     return fastText.predict(input, k);
   }
+
+  public List<ScoredItem<String>> predict(String input, int k, float threshold) {
+    return fastText.predict(input, k, threshold);
+  }
+
 
   public List<String> getLabels() {
     return fastText.getLabels();

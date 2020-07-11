@@ -301,14 +301,15 @@ public class FastText {
     @Override
     public String toString() {
       return String.format(
-          "P@%d: %.3f  R@%d: %.3f  Number of examples = %d",
+          "P@%d: %.3f  R@%d: %.3f F@%d %.3f  Number of examples = %d",
           k, precision,
           k, recall,
+          k, (2 * precision * recall) / (precision + recall),
           numberOfExamples);
     }
   }
 
-  EvaluationResult test(Path in, int k, float threshold) throws IOException {
+  public EvaluationResult test(Path in, int k, float threshold) throws IOException {
     int nexamples = 0, nlabels = 0;
     float precision = 0.0f;
     String lineStr;
@@ -317,9 +318,7 @@ public class FastText {
       IntVector words = new IntVector(), labels = new IntVector();
       dict_.getLine(lineStr, words, labels);
       if (labels.size() > 0 && words.size() > 0) {
-        List<Model.FloatIntPair> modelPredictions =
-            model_.predict(words.copyOf(), threshold, k);
-
+        List<Model.FloatIntPair> modelPredictions = model_.predict(words.copyOf(), threshold, k);
         for (Model.FloatIntPair pair : modelPredictions) {
           if (labels.contains(pair.second)) {
             precision += 1.0f;
@@ -334,6 +333,19 @@ public class FastText {
         precision / nlabels,
         k,
         nexamples);
+  }
+
+  public void test(Path in, int k, float threshold, Meter meter) throws IOException {
+    String lineStr;
+    BufferedReader reader = Files.newBufferedReader(in, StandardCharsets.UTF_8);
+    while ((lineStr = reader.readLine()) != null) {
+      IntVector words = new IntVector(), labels = new IntVector();
+      dict_.getLine(lineStr, words, labels);
+      if (labels.size() > 0 && words.size() > 0) {
+        List<Model.FloatIntPair> modelPredictions = model_.predict(words.copyOf(), threshold, k);
+        meter.log(labels, modelPredictions);
+      }
+    }
   }
 
   Vector textVectors(List<String> paragraph) {
@@ -353,20 +365,44 @@ public class FastText {
     return vec;
   }
 
-  //TODO: this method does not exist in original c++ code. check python bindings
-  public float[] textVector(String s) {
-    Vector vec = new Vector(args_.dim);
+  public float[] sentenceVector(String s) {
+    Vector svec = new Vector(args_.dim);
+
+    if (args_.model == model_name.supervised) {
+      IntVector line = new IntVector();
+      dict_.getLine(s, line, model_.getRng());
+      for (int i : line.copyOf()) {
+        addInputVector(svec, i);
+      }
+      if(line.size()>0) {
+        svec.mul(1f/line.size());
+      }
+      return svec.getData();
+    }
+
     IntVector line = new IntVector();
     dict_.getLine(s, line, model_.getRng());
     dict_.addWordNgramHashes(line, args_.wordNgrams);
     if (line.size() == 0) {
-      return vec.getData();
+      return svec.getData();
     }
+
+    int count = 0;
     for (int i : line.copyOf()) {
-      vec.addRow(model_.wi_, i);
+
+      Vector vec = getWordVector(dict_.getWord(i));
+      float norm = vec.norm();
+
+      if (norm > 0) {
+        vec.mul(1f / norm);
+        svec.addVector(vec);
+        count++;
+      }
     }
-    vec.mul((float) (1.0 / line.size()));
-    return vec.getData();
+    if (count > 0) {
+      svec.mul(1f / count);
+    }
+    return svec.getData();
   }
 
   Vector getSentenceVector(String s) {
@@ -407,7 +443,7 @@ public class FastText {
     return predict(line, k, -100f);
   }
 
-  List<ScoredItem<String>> predict(String line, int k, float threshold) {
+  public List<ScoredItem<String>> predict(String line, int k, float threshold) {
     IntVector words = new IntVector();
     IntVector labels = new IntVector();
     dict_.getLine(line, words, labels);

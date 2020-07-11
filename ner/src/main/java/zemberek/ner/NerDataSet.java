@@ -7,18 +7,20 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Random;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import org.antlr.v4.runtime.Token;
 import zemberek.core.collections.Histogram;
 import zemberek.core.logging.Log;
 import zemberek.core.text.Regexps;
 import zemberek.core.text.TextIO;
+import zemberek.core.text.TextUtil;
 import zemberek.core.turkish.Turkish;
 import zemberek.tokenization.TurkishTokenizer;
-import zemberek.tokenization.antlr.TurkishLexer;
+import zemberek.tokenization.Token;
+import zemberek.tokenization.Token.Type;
 
 public class NerDataSet {
 
@@ -52,6 +54,10 @@ public class NerDataSet {
         typeIds.add(token.tokenId);
       }
     }
+  }
+
+  public List<NerSentence> getSentences() {
+    return sentences;
   }
 
   public enum AnnotationStyle {
@@ -96,8 +102,8 @@ public class NerDataSet {
     List<String> result = new ArrayList<>();
     for (Token t : TurkishTokenizer.DEFAULT.tokenize(input)) {
       String s = t.getText();
-      if (t.getType() == TurkishLexer.Date || t.getType() == TurkishLexer.Number
-          || t.getType() == TurkishLexer.Time) {
+      if (t.getType() == Token.Type.Date || t.getType() == Type.Number
+          || t.getType() == Token.Type.Time) {
         s = "*" + s.replaceAll("[0-9]", "D") + "*";
       }
       result.add(s);
@@ -116,6 +122,10 @@ public class NerDataSet {
 
     List<NerSentence> nerSentences = new ArrayList<>(lines.size());
     for (String line : lines) {
+      line = TextUtil.normalizeApostrophes(line);
+      line = TextUtil.normalizeQuotesHyphens(line);
+      line = TextUtil.normalizeSpacesAndSoftHyphens(line);
+
       if (line.trim().length() < 2) {
         continue;
       }
@@ -178,11 +188,11 @@ public class NerDataSet {
   /**
    * prints information about the data set.
    */
-  public void info() {
-    new Info(this).log();
+  public String info() {
+    return new Info(this).log();
   }
 
-  static class Info {
+  public static class Info {
 
     int numberOfSentences;
     Set<String> types;
@@ -206,16 +216,19 @@ public class NerDataSet {
       }
     }
 
-    void log() {
-      Log.info("Number of sentences      = %d", numberOfSentences);
-      Log.info("Number of tokens         = %d", numberOfTokens);
+    public String log() {
+      List<String> res = new ArrayList<>();
+      res.add(String.format("Number of sentences      = %d", numberOfSentences));
+      res.add(String.format("Number of tokens         = %d", numberOfTokens));
       for (String type : typeHistogram.getSortedList()) {
-        Log.info("Type = %s (Count = %d, Token Count = %d Av. Token = %.2f )",
+        res.add(String.format(Locale.ENGLISH,"Type = %s (Count = %d, Token Count = %d Av. Token = %.2f )",
             type,
             typeHistogram.getCount(type),
             tokenHistogram.getCount(type),
-            tokenHistogram.getCount(type) * 1f / typeHistogram.getCount(type));
+            tokenHistogram.getCount(type) * 1f / typeHistogram.getCount(type)));
       }
+      return String.join("\n", res);
     }
+
   }
 }

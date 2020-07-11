@@ -1,7 +1,201 @@
 CHANGE LOG
 ==========
 
-## 0.15.0
+## 0.17.1
+
+This is a minor release with bug fixes.
+Running zemberek-full.jar now lists available applications correctly. 
+
+## 0.17.0 
+
+(April 17th 2019)
+
+This is a small release with breaking changes.
+
+### New features
+
+Tokenization module now can be configured to ignore text in double quotes.
+
+Zemberek now uses it's own Token class instead of using Antlr's Token class. This is 
+a breaking change.
+
+Behavior of two methods and add two methods in WordAnalysisSurfaceFormatter are changed. Now if apostrophe is provided, it will use it even in regular words.
+
+Model compression for NER models is added.
+
+Add Builder mechanism to TurkishSentenceExtractor.
+
+TurkishTextToNumberConverter is now thread safe and stateless.
+
+There is a NER postprocessor NEPostProcessor (Provided by Ayça Müge Sevinç).
+
+Use shade plugin so that when using single jar library, dependent libraries will not conflict with ohter versions.
+
+### Deprecations and breaking changes
+
+`RootLexicon.DEFAULT` is now inaccessible. Use `RootLexicon.getDefault()` for accessing
+default lexicon.
+
+`RootLexicon.builder().addDefaultLexicon()` is renamed as `RootLexicon.builder().addDefaultLexicon()`
+
+Zemberek now uses it's own Token class instead of using Antlr's Token class.
+
+normalizedLemma() in DictionaryItem now removes -mek -mak suffixes and converts to lowercase.
+
+Some method names in TurkishAlphabet is changed. Such as
+asciiTolerantEquals -> equalsIgnoreDiacritics and
+asciiTolerantStartsWith -> startsWithIgnoreDiacritics
+
+### Notable Bug Fixes
+
+A possible small memory leak caused by analysis of unidentified tokens is fixed. 
+
+We thank everybody for their contributions.
+Special thanks to Müge for her feedback on morphology and NER modules.
+
+
+## 0.16.0 
+
+(October 29th 2018)
+
+This is a major release with breaking changes and new features.
+
+### New features 
+
+#### grpc module
+Initial release of [**grpc**](grpc) remote procedure call module. This is an experimental module that allows fast access to some 
+functions of the project from other programming languages. We provide initial Python access codes for experimentation.
+Remote API is also subject to change until Version 1.0.0. Refer to the [documentation](grpc) for more information. 
+
+#### Noisy Text Normalization
+
+Now there is a sentence normalization functionality. Before this, [normalization](normalization) 
+module only provided simple 1 distance word based spell check suggestion mechanism. Now. system offers a
+best effort text normalization functionality. This may be useful for pre-processing noisy text inputs
+before applying other functions.  
+
+Candidate correct words for noisy words are collected using several heuristics, 
+informal morphotactics, distance matching and lookup tables that generated with
+ an offline contextual graph random walk algorithm. After that, best correct sequence is found
+  with Viterbi search on candidate words using n-gram language model scores. 
+
+Note that this is our first attempt, expect many errors. 
+
+#### Informal Turkish Words Analysis
+We introduce a mechanism for analyzing Turkish informal words. For example, word `okuycam`, analysis
+may be:
+
+    [okumak:Verb] oku:Verb+yca:Fut_Informal+m:A1sg   
+
+Informal morpheme names (like `Fut_Informal`) have `_Informal` suffix. 
+
+For enabling informal morphological analysis, TurkishMorphology class should be initialized like this:
+
+    TurkishMorphology morphology = TurkishMorphology.builder()        
+        .setLexicon(RootLexicon.DEFAULT)
+        .useInformalAnalysis()
+        .build();
+
+    morphology.analyzeAndDisambiguate("vurucam kırbacı")
+        .bestAnalysis()
+        .forEach(System.out::println);
+
+Output:
+
+    [vurmak:Verb] vur:Verb+uca:Fut_Informal+m:A1sg
+    [kırbaç:Noun] kırbac:Noun+A3sg+ı:P3sg
+
+Ambiguity resolution mechanism may not work well if sentence contains informal morphemes. 
+There is also a simple informal to formal conversion mechanism `InformalAnalysisConverter` that
+generates formal surface form of an informal word analysis. 
+
+#### Diacritics Ignored Analysis
+
+Morphological analysis can be configured to ignore Turkish diacritics marks as used in characters
+**[ç,ğ,i,ö,ü,ş]** For that purpose ignoreDiacriticsInAnalysis() method is used. For example:
+
+    TurkishMorphology morphology = TurkishMorphology.builder()        
+        .setLexicon(RootLexicon.DEFAULT)
+        .ignoreDiacriticsInAnalysis()
+        .build();
+
+    morphology.analyze("kisi").forEach(System.out::println);
+    
+Output will be:    
+
+    [kış:Noun,Time] kış:Noun+A3sg+ı:Acc
+    [kış:Noun,Time] kış:Noun+A3sg+ı:P3sg
+    [kişi:Noun] kişi:Noun+A3sg
+
+Same output will be generated for inputs "kısı, kışi, kişi, kışı" etc.    
+
+#### New command line applications
+
+There are several new command line applications.
+* `GenerateWordVectors`: Generates word vectors using a text corpus. 
+* `StartGrpcServer`: Starts Zemberek gRPC Server.
+* `TrainNerModel`: Generates Turkish Named Entity Recognition model.
+* `EvaluateNer`: Evaluates an annotated NER data set.
+* `FindNamedEntities`: Finds named entities from a Turkish text file.
+
+### Deprecations and breaking changes
+
+* Most lexicon building methods in TurkishMorphology is now moved to RootLexicon's Builder mechanism.
+We did not go through a deprecation stage for this because there were too many changes.
+`RootLexicon.DEFAULT` is now contains default dictionary items. So if user wants to create a custom 
+dictionary and add it to default, or remove items during instantiation, RootLexicon builder mechanism
+needs to be used. Example:
+
+      RootLexicon myLexicon = RootLexicon.builder()
+          .setLexicon(RootLexicon.DEFAULT) // start with default
+          .addDictionaryLines("foo", "rar") // add two new nouns
+          .addTextDictionaries(Paths.get("my-own-dictionary-file")) // add from file
+          .build();
+
+* `InterpretingAnalyzer` is now `RuleBasedAnalyzer`
+
+* `locations-tr.dict` (contains mostly village and district names) is removed from default 
+binary dictionary because it was causing a lot of confusion. Users can add it manually.
+
+* Instead of using Ability+Negative suffix couple, there is now a new morpheme called `Unable`.
+ New suffix does not cause a Verb to Verb derivation. For example, for word `okuyamadım`: 
+
+      Before: oku:Verb|ya:Abil→Verb+ma:Neg+dı:Past+m:A1sg
+      After : oku:Verb+yama:Unable+dı:Past+m:A1sg
+      
+* Deprecated createWithTextDictionaries() method in TurkishMorphology is now removed.
+
+### Notable Bug fixes
+
+[#188](https://github.com/ahmetaa/zemberek-nlp/issues/188) Cannot analyze sendeki, bendeki etc
+
+[#184](https://github.com/ahmetaa/zemberek-nlp/issues/184) Cannot analyze `abimsin` or any Noun+..+P1sg+..+Verb+..+A2sg
+
+[#183](https://github.com/ahmetaa/zemberek-nlp/issues/183) Cannot analyze "Tübitak'a"
+
+[#178](https://github.com/ahmetaa/zemberek-nlp/issues/178) Anlaysis fails with `herkeste, gibime, gibimize`
+
+[#175](https://github.com/ahmetaa/zemberek-nlp/issues/175) Lemmatization may give incorrect results in Zero morpheme derivations
+
+[#174](https://github.com/ahmetaa/zemberek-nlp/issues/174) Add ®™©℠symbols as punctuation.
+
+[#167](https://github.com/ahmetaa/zemberek-nlp/issues/167) Redundant Adj -> Noun -> Noun conversion
+
+[#170](https://github.com/ahmetaa/zemberek-nlp/issues/170) Justlike morpheme should not appear in some cases.
+
+[#171](https://github.com/ahmetaa/zemberek-nlp/issues/171) Cannot analyze "kendimle"
+
+[#172](https://github.com/ahmetaa/zemberek-nlp/issues/172) Cannot analyze "kendimde, kendimden, kendimce"
+
+[#173](https://github.com/ahmetaa/zemberek-nlp/issues/173) "gelebilme" should not have an analysis with "Neg"
+
+We thank everybody for their contributions.
+Special thanks to Müge for finding numerous morphology bugs and @bojie for 
+fixing Language Model compression problem.
+
+## 0.15.0 
+
+August 2nd 2018
 
 #### New features 
 

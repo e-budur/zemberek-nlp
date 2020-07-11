@@ -1,33 +1,56 @@
 package zemberek.core.turkish.hyphenation;
 
 
+import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import zemberek.core.logging.Log;
+import zemberek.core.text.TextIO;
 import zemberek.core.turkish.TurkishAlphabet;
 
 /**
- * This syllable service is designed for extracting syllable information from Turkish words. This
- * class uses a strict syllable extraction algorithm, meaning that it cannot parse words like
- * "tren", "spor", "sfinks", "angstrom", "mavimtrak", "stetoskop" etc.
+ * This syllable service is designed for extracting syllable information from Turkish words.
+ * Algorithm cannot parse words like "tren", "spor", "sfinks", "angstrom", "mavimtrak", "stetoskop"
+ * etc.
  */
 public class TurkishSyllableExtractor implements SyllableExtractor {
 
   private final TurkishAlphabet alphabet = TurkishAlphabet.INSTANCE;
-  boolean strict = false;
 
-  public void setStrict(boolean strict) {
+  // STRICT extractor cannot parse words ending two consonants. Such as `kart`, `yoğurt`
+  public static TurkishSyllableExtractor STRICT = new TurkishSyllableExtractor(true);
+
+  // DEFAULT extractor allows parsing words like "kitapt -> ki-tapt"
+  public static TurkishSyllableExtractor DEFAULT = new TurkishSyllableExtractor(false);
+
+  public final boolean strict;
+
+  private static HashSet<String> acceptedSyllablePrefixes;
+
+  static {
+    acceptedSyllablePrefixes = new HashSet<>();
+    try {
+      acceptedSyllablePrefixes.addAll(TextIO.loadLinesFromResource(
+          "zemberek/core/syllable/accepted-syllable-prefixes"));
+    } catch (IOException e) {
+      Log.warn("Cannot find accepted syllable prefixes.");
+    }
+  }
+
+  private TurkishSyllableExtractor(boolean strict) {
     this.strict = strict;
   }
 
   public List<String> getSyllables(String str) {
-    int[] boudaries = syllableBoundaries(str);
+    int[] boundaries = syllableBoundaries(str);
     List<String> result = new ArrayList<>();
-    for (int i = 0; i < boudaries.length - 1; i++) {
-      int boudary = boudaries[i];
-      result.add(str.substring(boudary, boudaries[i + 1]));
+    for (int i = 0; i < boundaries.length - 1; i++) {
+      int boundary = boundaries[i];
+      result.add(str.substring(boundary, boundaries[i + 1]));
     }
-    if (boudaries.length > 0) {
-      result.add(str.substring(boudaries[boudaries.length - 1], str.length()));
+    if (boundaries.length > 0) {
+      result.add(str.substring(boundaries[boundaries.length - 1]));
     }
     return result;
   }
@@ -35,7 +58,7 @@ public class TurkishSyllableExtractor implements SyllableExtractor {
   public int[] syllableBoundaries(String str) {
     final int size = str.length();
     char[] chr = str.toCharArray();
-    int[] boundarIndexes = new int[size];
+    int[] boundaryIndexes = new int[size];
     int lastIndex = size;
     int index = 0;
     while (lastIndex > 0) {
@@ -43,18 +66,18 @@ public class TurkishSyllableExtractor implements SyllableExtractor {
       if (letterCount == -1) {
         return new int[0];
       }
-      boundarIndexes[index++] = lastIndex - letterCount;
+      boundaryIndexes[index++] = lastIndex - letterCount;
       lastIndex -= letterCount;
     }
     int[] result = new int[index];
     for (int i = 0; i < index; i++) {
-      result[i] = boundarIndexes[index - i - 1];
+      result[i] = boundaryIndexes[index - i - 1];
     }
     return result;
   }
 
 
-  boolean isVowel(char c) {
+  private boolean isVowel(char c) {
     return alphabet.isVowel(c);
   }
 
@@ -89,8 +112,8 @@ public class TurkishSyllableExtractor implements SyllableExtractor {
         if (endIndex == 3 || isVowel(chr[endIndex - 4])) {
           return 3;
         }
-        //word dort harfli ise yukaridaki kurallari gecmesi nedeniyle hecelenemez sayiyoruz.
-        // tren, strateji, krank, angstrom gibi kelimeler henuz hecelenmiyor.
+        // If the word is 4 letters and rules above passed, we assume this cannot be parsed.
+        // That is why words like tren, strateji, krank, angstrom cannot be parsed.
         if (endIndex == 4) {
           return -1;
         }
@@ -112,5 +135,4 @@ public class TurkishSyllableExtractor implements SyllableExtractor {
       }
     }
   }
-
 }

@@ -9,17 +9,15 @@ import java.nio.file.Paths;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
-import org.antlr.v4.runtime.Token;
 import org.junit.Ignore;
 import org.junit.Test;
 import zemberek.core.collections.Histogram;
 import zemberek.core.logging.Log;
 import zemberek.core.turkish.Turkish;
 import zemberek.morphology.TurkishMorphology;
-import zemberek.morphology.lexicon.tr.TurkishDictionaryLoader;
 import zemberek.tokenization.TurkishSentenceExtractor;
 import zemberek.tokenization.TurkishTokenizer;
-import zemberek.tokenization.antlr.TurkishLexer;
+import zemberek.tokenization.Token;
 
 public class SpeedTest {
 
@@ -29,8 +27,7 @@ public class SpeedTest {
     //Path p = Paths.get("/media/aaa/Data/corpora/me-sentences/www.aljazeera.com.tr/2018-02-22");
     Path p = Paths.get("src/test/resources/corpora/cnn-turk-10k");
     List<String> sentences = getSentences(p);
-    TurkishMorphology morphology = TurkishMorphology.builder()
-        .addTextDictionaryResources(TurkishDictionaryLoader.DEFAULT_DICTIONARY_RESOURCES).build();
+    TurkishMorphology morphology = TurkishMorphology.createWithDefaults();
     Stopwatch sw = Stopwatch.createStarted();
 
     int tokenCount = 0;
@@ -40,14 +37,14 @@ public class SpeedTest {
     for (String sentence : sentences) {
       List<Token> tokens = TurkishTokenizer.DEFAULT.tokenize(sentence);
       for (Token token : tokens) {
-        if (token.getType() == TurkishLexer.Punctuation) {
+        if (token.getType() == Token.Type.Punctuation) {
           continue;
         }
         tokenCount++;
         WordAnalysis results = morphology.analyze(token.getText());
         if (!results.isCorrect()) {
           noAnalysis++;
-          //failedWords.add(token.getText());
+          failedWords.add(token.getText());
         }
       }
       sentenceCount++;

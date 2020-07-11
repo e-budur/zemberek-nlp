@@ -7,10 +7,13 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import zemberek.core.ScoredItem;
 import zemberek.core.collections.FloatValueMap;
+import zemberek.core.collections.IntMap;
+import zemberek.core.turkish.TurkishAlphabet;
 
 public class CharacterGraphDecoder {
 
@@ -22,8 +25,8 @@ public class CharacterGraphDecoder {
   static final float NEAR_KEY_SUBSTITUTION_PENALTY = 0.5f;
   static final float TRANSPOSITION_PENALTY = 1;
   private static final Locale tr = new Locale("tr");
-  public static DeasciifierMatcher ASCII_TOLERANT_MATCHER = new DeasciifierMatcher();
-  private static ExactMatcher EXACT_MATCHER = new ExactMatcher();
+  public static final DiacriticsIgnoringMatcher DIACRITICS_IGNORING_MATCHER =
+      new DiacriticsIgnoringMatcher();
 
   static {
     Map<Character, String> map = TURKISH_FQ_NEAR_KEY_MAP;
@@ -143,7 +146,7 @@ public class CharacterGraphDecoder {
     }
   }
 
-  public void buildDictionary(List<String> vocabulary) {
+  public void addWords(List<String> vocabulary) {
     for (String s : vocabulary) {
       graph.addWord(process(s), Node.TYPE_WORD);
     }
@@ -179,6 +182,10 @@ public class CharacterGraphDecoder {
 
   public List<String> getSuggestions(String input) {
     return new Decoder().decode(input).getKeyList();
+  }
+
+  public List<String> getSuggestions(String input, CharMatcher matcher) {
+    return new Decoder(matcher).decode(input).getKeyList();
   }
 
   public List<String> getSuggestionsSorted(String input) {
@@ -315,10 +322,10 @@ public class CharacterGraphDecoder {
       if (!node.equals(that.node)) {
         return false;
       }
-      if (word != null ? !word.equals(that.word) : that.word != null) {
+      if (!Objects.equals(word, that.word)) {
         return false;
       }
-      return ending != null ? ending.equals(that.ending) : that.ending == null;
+      return Objects.equals(ending, that.ending);
     }
 
     @Override
@@ -333,42 +340,46 @@ public class CharacterGraphDecoder {
     }
   }
 
-  private static class DeasciifierMatcher implements CharMatcher {
+  private static class DiacriticsIgnoringMatcher implements CharMatcher {
 
-    static final char[] C = {'c', 'ç'};
-    static final char[] G = {'g', 'ğ'};
-    static final char[] I = {'ı', 'i'};
-    static final char[] O = {'o', 'ö'};
-    static final char[] S = {'s', 'ş'};
-    static final char[] U = {'u', 'ü'};
+    static IntMap<char[]> map = new IntMap<>();
 
-    @Override
-    public char[] matches(char c) {
-      switch (c) {
-        case 'c':
-          return C;
-        case 'g':
-          return G;
-        case 'i':
-        case 'ı':
-          return I;
-        case 's':
-          return S;
-        case 'o':
-          return O;
-        case 'u':
-          return U;
-        default:
-          return new char[]{c};
+    public DiacriticsIgnoringMatcher() {
+      String allLetters = TurkishAlphabet.INSTANCE.getAllLetters() + "+.,'-";
+
+      for (int i = 0; i < allLetters.length(); i++) {
+        char[] ca = new char[1];
+        char c = allLetters.charAt(i);
+        ca[0] = c;
+        map.put(c, ca);
       }
+      // override some
+      map.put('c', new char[]{'c', 'ç'});
+      map.put('g', new char[]{'g', 'ğ'});
+      map.put('ı', new char[]{'ı', 'i'});
+      map.put('i', new char[]{'ı', 'i'});
+      map.put('o', new char[]{'o', 'ö'});
+      map.put('s', new char[]{'s', 'ş'});
+      map.put('u', new char[]{'u', 'ü'});
+      map.put('a', new char[]{'a', 'â'});
+      map.put('i', new char[]{'i', 'î'});
+      map.put('u', new char[]{'u', 'û'});
+      map.put('C', new char[]{'C', 'Ç'});
+      map.put('G', new char[]{'G', 'Ğ'});
+      map.put('I', new char[]{'I', 'İ'});
+      map.put('İ', new char[]{'İ', 'I'});
+      map.put('O', new char[]{'O', 'Ö'});
+      map.put('Ö', new char[]{'Ö', 'Ş'});
+      map.put('U', new char[]{'U', 'Ü'});
+      map.put('A', new char[]{'A', 'Â'});
+      map.put('İ', new char[]{'İ', 'Î'});
+      map.put('U', new char[]{'U', 'Û'});
     }
-  }
-
-  public static class ExactMatcher implements CharMatcher {
 
     @Override
     public char[] matches(char c) {
-      return new char[]{c};
+      char[] res = map.get(c);
+      return res == null ? new char[]{c} : res;
     }
   }
 
@@ -378,7 +389,7 @@ public class CharacterGraphDecoder {
     CharMatcher matcher;
 
     Decoder() {
-      this(EXACT_MATCHER);
+      this(null);
     }
 
     Decoder(CharMatcher matcher) {
@@ -415,15 +426,16 @@ public class CharacterGraphDecoder {
       if (nextIndex < input.length()) {
 
         // there can be more than one matching character, depending on the matcher.
-        char[] cc = matcher.matches(nextChar);
+        char[] cc = matcher == null ? null : matcher.matches(nextChar);
         // because there can be empty connections,
         // there can be more than 1 matching child nodes per character.
         if (hypothesis.node.hasEpsilonConnection()) {
-          for (Node child : hypothesis.node.getChildList(cc)) {
-
+          List<Node> childList = cc == null ?
+              hypothesis.node.getChildList(nextChar) :
+              hypothesis.node.getChildList(cc);
+          for (Node child : childList) {
             Hypothesis h = hypothesis.getNewMoveForward(child, 0, Operation.NO_ERROR);
             h.setWord(child);
-
             newHypotheses.add(h);
             if (nextIndex >= input.length() - 1) {
               if (h.node.word != null) {
@@ -432,18 +444,31 @@ public class CharacterGraphDecoder {
             }
           }
         } else {
-          for (char c : cc) {
-            Node child = hypothesis.node.getImmediateChild(c);
-            if (child == null) {
-              continue;
+          if (cc == null) {
+            Node child = hypothesis.node.getImmediateChild(nextChar);
+            if (child != null) {
+              Hypothesis h = hypothesis.getNewMoveForward(child, 0, Operation.NO_ERROR);
+              h.setWord(child);
+              newHypotheses.add(h);
+              if (nextIndex >= input.length() - 1) {
+                if (h.node.word != null) {
+                  addHypothesis(h);
+                }
+              }
             }
-            Hypothesis h = hypothesis.getNewMoveForward(child, 0, Operation.NO_ERROR);
-            h.setWord(child);
-
-            newHypotheses.add(h);
-            if (nextIndex >= input.length() - 1) {
-              if (h.node.word != null) {
-                addHypothesis(h);
+          } else {
+            for (char c : cc) {
+              Node child = hypothesis.node.getImmediateChild(c);
+              if (child == null) {
+                continue;
+              }
+              Hypothesis h = hypothesis.getNewMoveForward(child, 0, Operation.NO_ERROR);
+              h.setWord(child);
+              newHypotheses.add(h);
+              if (nextIndex >= input.length() - 1) {
+                if (h.node.word != null) {
+                  addHypothesis(h);
+                }
               }
             }
           }
@@ -512,30 +537,53 @@ public class CharacterGraphDecoder {
       }
 
       // transposition
-      // TODO: make length check parametric.
+      // TODO: make length check parametric. Also eliminate gross code duplication
       if (input.length() > 2 && nextIndex < input.length() - 1) {
         char transpose = input.charAt(nextIndex + 1);
-        char[] tt = matcher.matches(transpose);
-        char[] cc = matcher.matches(nextChar);
-        for (char t : tt) {
-          List<Node> nextNodes = hypothesis.node.getChildList(t);
-          for (Node nextNode : nextNodes) {
-            for (char c : cc) {
-              if (hypothesis.node.hasChild(t) && nextNode.hasChild(c)) {
-                for (Node n : nextNode.getChildList(c)) {
-                  Hypothesis h = hypothesis.getNew(
-                      n,
-                      TRANSPOSITION_PENALTY,
-                      nextIndex + 1,
-                      Operation.TRANSPOSITION);
-                  h.setWord(n);
-                  if (nextIndex == input.length() - 1) {
-                    if (h.node.word != null) {
-                      addHypothesis(h);
+        if (matcher != null) {
+          char[] tt = matcher.matches(transpose);
+          char[] cc = matcher.matches(nextChar);
+          for (char t : tt) {
+            List<Node> nextNodes = hypothesis.node.getChildList(t);
+            for (Node nextNode : nextNodes) {
+              for (char c : cc) {
+                if (hypothesis.node.hasChild(t) && nextNode.hasChild(c)) {
+                  for (Node n : nextNode.getChildList(c)) {
+                    Hypothesis h = hypothesis.getNew(
+                        n,
+                        TRANSPOSITION_PENALTY,
+                        nextIndex + 1,
+                        Operation.TRANSPOSITION);
+                    h.setWord(n);
+                    if (nextIndex == input.length() - 1) {
+                      if (h.node.word != null) {
+                        addHypothesis(h);
+                      }
+                    } else {
+                      newHypotheses.add(h);
                     }
-                  } else {
-                    newHypotheses.add(h);
                   }
+                }
+              }
+            }
+          }
+        } else {
+          List<Node> nextNodes = hypothesis.node.getChildList(transpose);
+          for (Node nextNode : nextNodes) {
+            if (hypothesis.node.hasChild(transpose) && nextNode.hasChild(nextChar)) {
+              for (Node n : nextNode.getChildList(nextChar)) {
+                Hypothesis h = hypothesis.getNew(
+                    n,
+                    TRANSPOSITION_PENALTY,
+                    nextIndex + 1,
+                    Operation.TRANSPOSITION);
+                h.setWord(n);
+                if (nextIndex == input.length() - 1) {
+                  if (h.node.word != null) {
+                    addHypothesis(h);
+                  }
+                } else {
+                  newHypotheses.add(h);
                 }
               }
             }
@@ -553,6 +601,5 @@ public class CharacterGraphDecoder {
         finished.set(hypWord, hypothesis.penalty);
       }
     }
-
   }
 }

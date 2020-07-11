@@ -5,7 +5,7 @@
   <parent>
     <artifactId>zemberek-nlp</artifactId>
     <groupId>zemberek-nlp</groupId>
-    <version>0.15.0</version>
+    <version>0.17.1</version>
   </parent>
 
   <modelVersion>4.0.0</modelVersion>
@@ -30,6 +30,16 @@
     </dependency>
     <dependency>
       <groupId>zemberek-nlp</groupId>
+      <artifactId>zemberek-apps</artifactId>
+      <version>${project.parent.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>zemberek-nlp</groupId>
+      <artifactId>zemberek-ner</artifactId>
+      <version>${project.parent.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>zemberek-nlp</groupId>
       <artifactId>zemberek-normalization</artifactId>
       <version>${project.parent.version}</version>
     </dependency>
@@ -41,6 +51,11 @@
     <dependency>
       <groupId>zemberek-nlp</groupId>
       <artifactId>zemberek-lang-id</artifactId>
+      <version>${project.parent.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>zemberek-nlp</groupId>
+      <artifactId>zemberek-examples</artifactId>
       <version>${project.parent.version}</version>
     </dependency>
     <dependency>

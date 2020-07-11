@@ -33,37 +33,25 @@ public class Files {
   }
 
   public static Comparator<File> getNameSortingComparator(final Locale locale) {
-    return new Comparator<File>() {
-      public int compare(File file, File file1) {
-        Collator coll = Collator.getInstance(locale);
-        return coll.compare(file.getName(), file1.getName());
-      }
+    return (file, file1) -> {
+      Collator coll = Collator.getInstance(locale);
+      return coll.compare(file.getName(), file1.getName());
     };
   }
 
   public static Comparator<File> getAbsolutePathSortingComparator(final Locale locale) {
-    return new Comparator<File>() {
-      public int compare(File file, File file1) {
-        Collator coll = Collator.getInstance(locale);
-        return coll.compare(file.getAbsolutePath(), file1.getAbsolutePath());
-      }
+    return (file, file1) -> {
+      Collator coll = Collator.getInstance(locale);
+      return coll.compare(file.getAbsolutePath(), file1.getAbsolutePath());
     };
   }
 
   public static Comparator<File> getNameSortingComparator() {
-    return new Comparator<File>() {
-      public int compare(File file, File file1) {
-        return file.getName().compareToIgnoreCase(file1.getName());
-      }
-    };
+    return (file, file1) -> file.getName().compareToIgnoreCase(file1.getName());
   }
 
   public static Comparator<File> getAbsolutePathSortingComparator() {
-    return new Comparator<File>() {
-      public int compare(File file, File file1) {
-        return file.getAbsolutePath().compareToIgnoreCase(file1.getAbsolutePath());
-      }
-    };
+    return (file, file1) -> file.getAbsolutePath().compareToIgnoreCase(file1.getAbsolutePath());
   }
 
   public static FileFilter extensionFilter(String... extensions) {
@@ -82,7 +70,7 @@ public class Files {
   public static void deleteFiles(File... files) {
     for (File s : files) {
       if (s.exists() && !s.isDirectory()) {
-        s.delete();
+        Files.deleteFiles(s);
       }
     }
   }
@@ -124,7 +112,7 @@ public class Files {
   public static List<File> getFilesSorted(File dir, Comparator<File> comparator) {
     checkExistingDirectory(dir);
     List<File> files = Arrays.asList(dir.listFiles());
-    Collections.sort(files, comparator);
+    files.sort(comparator);
     return files;
   }
 
@@ -139,7 +127,7 @@ public class Files {
   public static List<File> getFilesSorted(File dir, Comparator<File> comparator,
       FileFilter... filters) {
     checkExistingDirectory(dir);
-    List<File> files = new ArrayList<File>();
+    List<File> files = new ArrayList<>();
     for (File file : dir.listFiles()) {
       if (filters.length == 0) {
         files.add(file);
@@ -152,7 +140,7 @@ public class Files {
         }
       }
     }
-    Collections.sort(files, comparator);
+    files.sort(comparator);
     return files;
   }
 
@@ -180,7 +168,7 @@ public class Files {
   public static List<File> crawlDirectory(File dir, boolean recurseSubDirs, FileFilter... filters) {
     checkNotNull(dir, "File is null!");
     checkExistingDirectory(dir);
-    List<File> files = new ArrayList<File>();
+    List<File> files = new ArrayList<>();
     for (File file : dir.listFiles()) {
       if (file.isDirectory() && recurseSubDirs) {
         files.addAll(crawlDirectory(file, true, filters));

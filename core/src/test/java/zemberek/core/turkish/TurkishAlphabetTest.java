@@ -66,11 +66,71 @@ public class TurkishAlphabetTest {
   }
 
   @Test
-  public void ascciifyTest() {
+  public void toAsciiTest() {
     TurkishAlphabet alphabet = TurkishAlphabet.INSTANCE;
     String iStr = "abcçğıiİIoöüşâîûÂÎÛz";
     String oStr = "abccgiiIIoousaiuAIUz";
     Assert.assertEquals(oStr, alphabet.toAscii(iStr));
+  }
+
+  @Test
+  public void equalsIgnoreDiacritics() {
+    TurkishAlphabet alphabet = TurkishAlphabet.INSTANCE;
+    String[] a = {"siraci", "ağac", "ağaç"};
+    String[] b = {"şıracı", "ağaç", "agac"};
+    for (int i = 0; i < a.length; i++) {
+      Assert.assertTrue(alphabet.equalsIgnoreDiacritics(a[i], b[i]));
+    }
+  }
+
+  @Test
+  public void vowelHarmonyA() {
+    TurkishAlphabet alphabet = TurkishAlphabet.INSTANCE;
+    String[] a = {"elma", "kedi", "turp"};
+    String[] b= {"lar", "cik", "un"};
+    for (int i = 0; i < a.length; i++) {
+      Assert.assertTrue(alphabet.checkVowelHarmonyA(a[i], b[i]));
+    }
+  }
+
+  @Test
+  public void vowelHarmonyA2() {
+    TurkishAlphabet alphabet = TurkishAlphabet.INSTANCE;
+    String[] a = {"elma", "kedi", "turp"};
+    String[] b = {"ler", "cık", "in"};
+    for (int i = 0; i < a.length; i++) {
+      Assert.assertFalse(alphabet.checkVowelHarmonyA(a[i], b[i]));
+    }
+  }
+
+  @Test
+  public void vowelHarmonyI1() {
+    TurkishAlphabet alphabet = TurkishAlphabet.INSTANCE;
+    String[] a = {"elma", "kedi", "turp"};
+    String[] b = {"yı", "yi", "u"};
+    for (int i = 0; i < a.length; i++) {
+      Assert.assertTrue(alphabet.checkVowelHarmonyI(a[i], b[i]));
+    }
+  }
+
+  @Test
+  public void vowelHarmonyI2() {
+    TurkishAlphabet alphabet = TurkishAlphabet.INSTANCE;
+    String[] a = {"elma", "kedi", "turp"};
+    String[] b = {"yu", "yü", "ı"};
+    for (int i = 0; i < a.length; i++) {
+      Assert.assertFalse(alphabet.checkVowelHarmonyI(a[i], b[i]));
+    }
+  }
+
+  @Test
+  public void startsWithDiacriticsIgnoredTest() {
+    TurkishAlphabet alphabet = TurkishAlphabet.INSTANCE;
+    String[] a = {"siraci", "çağlayan"};
+    String[] b = {"şıracı", "cag"};
+    for (int i = 0; i < a.length; i++) {
+      Assert.assertTrue(alphabet.startsWithIgnoreDiacritics(a[i], b[i]));
+    }
   }
 
 }

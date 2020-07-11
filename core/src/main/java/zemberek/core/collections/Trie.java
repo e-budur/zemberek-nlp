@@ -37,7 +37,7 @@ public class Trie<T> {
       // root-foo* <- bar ==> root-foo*
       //                         \-bar*
       // or
-      // root-foo* <- foobar ==> foor-foo*-bar*
+      // root-foo* <- foobar ==> root-foo*-bar*
       if (node == null) {
         previousNode.addChild(new Node<>(item, getSuffix(chars, i)));
         size++;
@@ -116,6 +116,8 @@ public class Trie<T> {
       for (Node<T> tNode : toWalk) {
         if (tNode.hasItem()) {
           items.addAll(tNode.items);
+        }
+        if (tNode.children != null && tNode.children.size() > 0) {
           n.addAll(tNode.children.getValues());
         }
       }

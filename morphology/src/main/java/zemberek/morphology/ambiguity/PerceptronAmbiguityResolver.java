@@ -26,9 +26,9 @@ import zemberek.morphology.analysis.WordAnalysis;
  *
  * @see <a href="http://www.cmpe.boun.edu.tr/~hasim">Haşim Sak</a>
  * <p>
- * This is code is adapted from the Author's original Perl implementation. However, this is not a
+ * This code is adapted from the Author's original Perl implementation. However, this is not a
  * direct port, many changes needed to be applied for Zemberek integration and it has a cleaner
- * design.
+ * and faster design.
  * <p>
  * For Training, use {@link PerceptronAmbiguityResolverTrainer} class.
  */
@@ -183,6 +183,8 @@ public class PerceptronAmbiguityResolver implements AmbiguityResolver {
       //feats.addOrIncrement("8:" + r1 + "-" + r3);
       feats.addOrIncrement("9:" + r2 + "-" + r3);
       feats.addOrIncrement("10:" + r3);
+      feats.addOrIncrement("10b:" + r2);
+      feats.addOrIncrement("10c:" + r1);
 
       //feats.addOrIncrement("11:" + ig1 + "-" + ig2 + "-" + ig3);
       //feats.addOrIncrement("12:" + ig1 + "-" + ig3);

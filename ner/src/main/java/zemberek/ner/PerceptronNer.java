@@ -9,6 +9,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import zemberek.core.ScoredItem;
+import zemberek.core.data.CompressedWeights;
+import zemberek.core.data.WeightLookup;
 import zemberek.core.data.Weights;
 import zemberek.core.text.TextIO;
 import zemberek.core.text.TextUtil;
@@ -37,17 +39,27 @@ public class PerceptronNer {
       model.get(key).saveText(modelRoot);
     }
     Files.write(
-        modelRoot.resolve("ner-types"),
+        modelRoot.resolve("types"),
+        model.keySet().stream().sorted().collect(Collectors.toList()));
+  }
+
+  public void saveModelCompressed(Path modelRoot) throws IOException {
+    for (String key : model.keySet()) {
+      model.get(key).compressAndSave(modelRoot);
+    }
+    Files.write(
+        modelRoot.resolve("types"),
         model.keySet().stream().sorted().collect(Collectors.toList()));
   }
 
   public static PerceptronNer loadModelFromResources(String name, TurkishMorphology morphology) {
     String resourceRoot = "/ner/model/" + name;
     try {
-      List<String> types = TextIO.loadLinesFromResource(resourceRoot + "/ner-types");
+      List<String> types = TextIO.loadLinesFromResource(resourceRoot + "/types");
       Map<String, ClassModel> weightsMap = new HashMap<>();
       for (String type : types) {
-        ClassModel weights = ClassModel.loadFromResource(resourceRoot + "/" + type + ".ner.model");
+        String resourcePath = resourceRoot + "/" + type + ".ner.model";
+        ClassModel weights = ClassModel.loadFromResource(type, resourcePath);
         weightsMap.put(weights.id, weights);
       }
       return new PerceptronNer(weightsMap, morphology);
@@ -56,13 +68,14 @@ public class PerceptronNer {
     }
   }
 
-  public static PerceptronNer loadModel(Path modelRoot, TurkishMorphology morphology) throws IOException {
+  public static PerceptronNer loadModel(Path modelRoot, TurkishMorphology morphology)
+      throws IOException {
     Map<String, ClassModel> weightsMap = new HashMap<>();
     List<Path> files = Files.walk(modelRoot, 1)
         .filter(s -> s.toFile().getName().endsWith(".ner.model"))
         .collect(Collectors.toList());
     for (Path file : files) {
-      ClassModel weights = ClassModel.loadFromText(file);
+      ClassModel weights = ClassModel.load(file);
       weightsMap.put(weights.id, weights);
     }
     return new PerceptronNer(weightsMap, morphology);
@@ -88,7 +101,7 @@ public class PerceptronNer {
     return scores.stream().max((a, b) -> Float.compare(a.score, b.score)).get();
   }
 
-  public NerDataSet test(NerDataSet set) {
+  public NerDataSet evaluate(NerDataSet set) {
 
     List<NerSentence> resultSentences = new ArrayList<>();
 
@@ -125,10 +138,7 @@ public class PerceptronNer {
     return new NerDataSet(resultSentences);
   }
 
-  public NerSentence findNamedEntities(String sentence) {
-
-    TurkishTokenizer tokenizer = TurkishTokenizer.DEFAULT;
-    List<String> words = tokenizer.tokenizeToStrings(sentence);
+  public NerSentence findNamedEntities(String sentence, List<String> words) {
     List<NerToken> tokens = new ArrayList<>();
     int index = 0;
     for (String word : words) {
@@ -171,30 +181,42 @@ public class PerceptronNer {
     return new NerSentence(nerSentence.content, predictedTokens);
   }
 
+  public NerSentence findNamedEntities(String sentence) {
+    return findNamedEntities(sentence, TurkishTokenizer.DEFAULT.tokenizeToStrings(sentence));
+  }
+
   public static class ClassModel {
 
     String id;
-    Weights sparseWeights = new Weights();
+    WeightLookup sparseWeights = new Weights();
     List<DenseWeights> denseWeights = new ArrayList<>();
 
     public ClassModel(String id) {
       this.id = id;
     }
 
-    public ClassModel(String id, Weights sparseWeights) {
+    public ClassModel(String id, WeightLookup sparseWeights) {
       this.id = id;
       this.sparseWeights = sparseWeights;
     }
 
     void updateSparse(List<String> inputs, float value) {
+      if (sparseWeights instanceof CompressedWeights) {
+        throw new IllegalStateException("Weights seems to be compressed. Cannot update weights.");
+      }
+      Weights w = (Weights) sparseWeights;
       for (String input : inputs) {
-        sparseWeights.increment(input, value);
+        w.increment(input, value);
       }
     }
 
     ClassModel copy() {
+      if (sparseWeights instanceof CompressedWeights) {
+        throw new IllegalStateException("Weights seems to be compressed. Cannot copy.");
+      }
+      Weights w = (Weights) sparseWeights;
       ClassModel model = new ClassModel(id);
-      model.sparseWeights = sparseWeights.copy();
+      model.sparseWeights = w.copy();
       List<DenseWeights> copy = new ArrayList<>();
       for (DenseWeights denseWeight : denseWeights) {
         copy.add(new DenseWeights(denseWeight.id, denseWeight.weights.clone()));
@@ -204,18 +226,45 @@ public class PerceptronNer {
     }
 
     public void saveText(Path outRoot) throws IOException {
+      if (sparseWeights instanceof CompressedWeights) {
+        throw new IllegalStateException("Weights seems to be compressed. Cannot copy.");
+      }
+      Weights w = (Weights) sparseWeights;
       Path file = outRoot.resolve(id + ".ner.model");
-      sparseWeights.saveAsText(file);
+      w.saveAsText(file);
     }
 
-    public static ClassModel loadFromText(Path modelFile) throws IOException {
+    public void compressAndSave(Path outRoot) throws IOException {
+      if (sparseWeights instanceof CompressedWeights) {
+        throw new IllegalStateException(
+            "Weights seems to be compressed. Cannot compress it again.");
+      }
+      Weights w = (Weights) sparseWeights;
+      CompressedWeights cw = w.compress();
+      Path file = outRoot.resolve(id + ".ner.model");
+      cw.serialize(file);
+    }
+
+    public static ClassModel load(Path modelFile) throws IOException {
       String id = modelFile.toFile().getName().replace(".ner.model", "");
-      return new ClassModel(id, Weights.loadFromFile(modelFile));
+      WeightLookup weightLookup;
+      if (CompressedWeights.isCompressed(modelFile)) {
+        weightLookup = CompressedWeights.deserialize(modelFile);
+      } else {
+        weightLookup = Weights.loadFromFile(modelFile);
+      }
+      return new ClassModel(id, weightLookup);
     }
 
-    public static ClassModel loadFromResource(String id) throws IOException {
-      List<String> lines = TextIO.loadLinesFromResource(id + "ner.model");
-      return new ClassModel(id, Weights.loadFromLines(lines));
+    public static ClassModel loadFromResource(String id, String resourcePath) throws IOException {
+
+      WeightLookup weightLookup;
+      if (CompressedWeights.isCompressed(resourcePath)) {
+        weightLookup = CompressedWeights.deserialize(resourcePath);
+      } else {
+        weightLookup = Weights.loadFromResource(resourcePath);
+      }
+      return new ClassModel(id, weightLookup);
     }
   }
 

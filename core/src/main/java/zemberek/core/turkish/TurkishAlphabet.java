@@ -44,10 +44,17 @@ public class TurkishAlphabet {
 
   private String turkishSpecific = "çÇğĞıİöÖşŞüÜâîûÂÎÛ";
   private String turkishAscii = "cCgGiIoOsSuUaiuAIU";
-  private IntIntMap asciiMap = new IntIntMap();
+  private IntIntMap turkishToAsciiMap = new IntIntMap();
+  private FixedBitVector turkishSpecificLookup = TextUtil.generateBitLookup(turkishSpecific);
+
+  private String asciiEqTr = "cCgGiIoOsSuUçÇğĞıİöÖşŞüÜ";
+  private String asciiEq = "çÇğĞıİöÖşŞüÜcCgGiIoOsSuU";
+  private IntIntMap asciiEqualMap = new IntIntMap();
+  private FixedBitVector asciiTrLookup = TextUtil.generateBitLookup(asciiEqTr);
+
 
   private String foreignDiacritics = "ÀÁÂÃÄÅÈÉÊËÌÍÎÏÑÒÓÔÕÙÚÛàáâãäåèéêëìíîïñòóôõùúû";
-  private String diaciritcsToTurkish = "AAAAAAEEEEIIIINOOOOUUUaaaaaaeeeeiiiinoooouuu";
+  private String diacriticsToTurkish = "AAAAAAEEEEIIIINOOOOUUUaaaaaaeeeeiiiinoooouuu";
   private IntIntMap foreignDiacriticsMap = new IntIntMap();
   private FixedBitVector foreignDiacriticsLookup = TextUtil.generateBitLookup(foreignDiacritics);
 
@@ -70,15 +77,21 @@ public class TurkishAlphabet {
     }
     generateVoicingDevoicingLookups();
 
-    populateCharMap(asciiMap, turkishSpecific, turkishAscii);
-    populateCharMap(foreignDiacriticsMap, foreignDiacritics, diaciritcsToTurkish);
+    populateCharMap(turkishToAsciiMap, turkishSpecific, turkishAscii);
+    populateCharMap(foreignDiacriticsMap, foreignDiacritics, diacriticsToTurkish);
+
+    for (int i = 0; i < asciiEqTr.length(); i++) {
+      char in = asciiEqTr.charAt(i);
+      char out = asciiEq.charAt(i);
+      asciiEqualMap.put(in, out);
+    }
   }
 
   public String toAscii(String in) {
     StringBuilder sb = new StringBuilder(in.length());
     for (int i = 0; i < in.length(); i++) {
       char c = in.charAt(i);
-      int res = asciiMap.get(c);
+      int res = turkishToAsciiMap.get(c);
       char map = res == IntIntMap.NO_RESULT ? c : (char) res;
       sb.append(map);
     }
@@ -115,6 +128,41 @@ public class TurkishAlphabet {
         circumflexNormalized + circumflexNormalized.toUpperCase(TR));
   }
 
+  private boolean lookup(FixedBitVector vector, char c) {
+    return c < vector.length && vector.get(c);
+  }
+
+  public boolean containsAsciiRelated(String s) {
+    for (int i = 0; i < s.length(); i++) {
+      char c = s.charAt(i);
+      if (c < asciiTrLookup.length && asciiTrLookup.get(c)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  public IntIntMap getTurkishToAsciiMap() {
+    return turkishToAsciiMap;
+  }
+
+  public char getAsciiEqual(char c) {
+    int res = turkishToAsciiMap.get(c);
+    return res == IntIntMap.NO_RESULT ? c : (char) res;
+  }
+
+  public boolean isAsciiEqual(char c1, char c2) {
+    if (c1 == c2) {
+      return true;
+    }
+    int a1 = asciiEqualMap.get(c1);
+    if (a1 == IntIntMap.NO_RESULT) {
+      return false;
+    }
+    return a1 == c2;
+  }
+
+
   private void populateCharMap(IntIntMap map, String inStr, String outStr) {
     for (int i = 0; i < inStr.length(); i++) {
       char in = inStr.charAt(i);
@@ -123,7 +171,7 @@ public class TurkishAlphabet {
     }
   }
 
-  List<TurkicLetter> generateLetters() {
+  private List<TurkicLetter> generateLetters() {
     List<TurkicLetter> letters = Lists.newArrayList(
         builder('a').vowel().build(),
         builder('e').vowel().frontalVowel().build(),
@@ -172,11 +220,6 @@ public class TurkishAlphabet {
     return letters;
   }
 
-  public char devoice(char c) {
-    int res = devoicingMap.get(c);
-    return res == IntIntMap.NO_RESULT ? c : (char) res;
-  }
-
   public boolean allCapital(String input) {
     for (int i = 0; i < input.length(); i++) {
       if (!Character.isUpperCase(input.charAt(i))) {
@@ -209,11 +252,15 @@ public class TurkishAlphabet {
     return checkLookup(circumflexLookup, s);
   }
 
+  public boolean isTurkishSpecific(char c) {
+    return lookup(turkishSpecificLookup, c);
+  }
+
   public boolean containsApostrophe(String s) {
     return checkLookup(apostropheLookup, s);
   }
 
-  public boolean containsAsciiForeignDiacritics(String s) {
+  public boolean containsForeignDiacritics(String s) {
     return checkLookup(foreignDiacriticsLookup, s);
   }
 
@@ -239,6 +286,10 @@ public class TurkishAlphabet {
     return uppercase;
   }
 
+  /**
+   * Converts Turkish letters with circumflex symbols to letters without circumflexes. â->a î->i
+   * û->u
+   */
   public String normalizeCircumflex(String s) {
     if (!containsCircumflex(s)) {
       return s;
@@ -271,51 +322,97 @@ public class TurkishAlphabet {
     return sb.toString();
   }
 
-
+  /**
+   * If there is a voiced char for `c`, returns it. Otherwise Returns the original input. ç->c g->ğ
+   * k->ğ p->b t->d
+   */
   public char voice(char c) {
     int res = voicingMap.get(c);
     return res == IntIntMap.NO_RESULT ? c : (char) res;
   }
 
+  /**
+   * If there is a devoiced char for `c`, returns it. Otherwise Returns the original input. b->p
+   * c->ç d->t g->k ğ->k
+   */
+  public char devoice(char c) {
+    int res = devoicingMap.get(c);
+    return res == IntIntMap.NO_RESULT ? c : (char) res;
+  }
+
+
+  /**
+   * Returns the TurkicLetter object for a character. If it does not exist, returns
+   * TurkicLetter.UNDEFINED
+   */
   public TurkicLetter getLetter(char c) {
     TurkicLetter letter = letterMap.get(c);
     return letter == null ? TurkicLetter.UNDEFINED : letter;
   }
 
+  /**
+   * Returns the last letter of the input as "TurkicLetter". If input is empty or the last character
+   * does not belong to alphabet, returns TurkicLetter.UNDEFINED.
+   */
   public TurkicLetter getLastLetter(CharSequence s) {
     if (s.length() == 0) {
       return TurkicLetter.UNDEFINED;
     }
-    return letterMap.get(s.charAt(s.length() - 1));
+    return getLetter(s.charAt(s.length() - 1));
   }
 
-  public char getLastChar(CharSequence s) {
+  public char lastChar(CharSequence s) {
     return s.charAt(s.length() - 1);
   }
 
+  /**
+   * Returns the first letter of the input as "TurkicLetter". If input is empty or the first
+   * character does not belong to alphabet, returns TurkicLetter.UNDEFINED.
+   */
   public TurkicLetter getFirstLetter(CharSequence s) {
     if (s.length() == 0) {
       return TurkicLetter.UNDEFINED;
     }
-    return letterMap.get(s.charAt(0));
+    TurkicLetter letter = letterMap.get(s.charAt(0));
+    return getLetter(s.charAt(0));
   }
 
+  /**
+   * Returns is `c` is a Turkish vowel. Input can be lower or upper case. Turkish letters with
+   * circumflex are included.
+   */
   public boolean isVowel(char c) {
     return lookup(vowelLookup, c);
   }
 
+  /**
+   * Returns true if `c` is a member of set Turkish alphabet and three english letters w,x and q.
+   * Turkish letters with circumflex are included. Input can be lower or upper case.
+   */
   public boolean isDictionaryLetter(char c) {
     return lookup(dictionaryLettersLookup, c);
   }
 
+  /**
+   * Returns true if `c` is a stop consonant. Stop consonants for Turkish are: `ç,k,p,t`. Input can
+   * be lower or upper case.
+   */
   public boolean isStopConsonant(char c) {
     return lookup(stopConsonantLookup, c);
   }
 
+  /**
+   * Returns true if `c` is a stop consonant. Voiceless consonants for Turkish are:
+   * `ç,f,h,k,p,s,ş,t`. Input can be lower or upper case.
+   */
   public boolean isVoicelessConsonant(char c) {
     return lookup(voicelessConsonantsLookup, c);
   }
 
+  /**
+   * Returns the last vowel of the input as "TurkicLetter". If input is empty or there is no vowel,
+   * returns TurkicLetter.UNDEFINED.
+   */
   public TurkicLetter getLastVowel(CharSequence s) {
     if (s.length() == 0) {
       return TurkicLetter.UNDEFINED;
@@ -327,6 +424,94 @@ public class TurkishAlphabet {
       }
     }
     return TurkicLetter.UNDEFINED;
+  }
+
+  /**
+   * Returns the first vowel of the input as "TurkicLetter". If input is empty or there is no vowel,
+   * returns TurkicLetter.UNDEFINED.
+   */
+  public TurkicLetter getFirstVowel(CharSequence s) {
+    if (s.length() == 0) {
+      return TurkicLetter.UNDEFINED;
+    }
+    for (int i = 0; i < s.length(); i++) {
+      char c = s.charAt(i);
+      if (isVowel(c)) {
+        return getLetter(c);
+      }
+    }
+    return TurkicLetter.UNDEFINED;
+  }
+
+  /**
+   * Returns true if target string matches source string with A-Type harmony
+   * <pre>
+   *   elma, ya -> true
+   *   kedi, ye -> true
+   *   kalem, a -> false
+   * </pre>
+   */
+  public boolean checkVowelHarmonyA(CharSequence source, CharSequence target) {
+    TurkicLetter sourceLastVowel = getLastVowel(source);
+    TurkicLetter targetFirstVowel = getLastVowel(target);
+    return checkVowelHarmonyA(sourceLastVowel, targetFirstVowel);
+  }
+
+  /**
+   * Returns true if target string matches source string with I-Type harmony
+   * <pre>
+   *   elma, yı  -> true
+   *   kedi, yi  -> true
+   *   kalem, ü  -> false
+   *   yogurt, u -> true
+   * </pre>
+   */
+  public boolean checkVowelHarmonyI(CharSequence source, CharSequence target) {
+    TurkicLetter sourceLastVowel = getLastVowel(source);
+    TurkicLetter targetFirstVowel = getLastVowel(target);
+    return checkVowelHarmonyI(sourceLastVowel, targetFirstVowel);
+  }
+
+  /**
+   * Returns true if target letter matches source letter with A-Type harmony
+   * <pre>
+   *   i, e -> true
+   *   i, a -> false
+   *   u, a -> true
+   *   c, b -> false
+   * </pre>
+   */
+  public boolean checkVowelHarmonyA(TurkicLetter source, TurkicLetter target) {
+    if (source == TurkicLetter.UNDEFINED || target == TurkicLetter.UNDEFINED) {
+      return false;
+    }
+    if (!source.isVowel() || !target.isVowel()) {
+      return false;
+    }
+    return (source.frontal && target.frontal) ||
+        (!source.frontal && !target.frontal);
+  }
+
+  /**
+   * Returns true if target letter matches source letter with I-Type harmony
+   * <pre>
+   *   e, i -> true
+   *   a, i -> false
+   *   o, u -> true
+   *   c, b -> false
+   * </pre>
+   */
+  public boolean checkVowelHarmonyI(TurkicLetter source, TurkicLetter target) {
+    if (source == TurkicLetter.UNDEFINED || target == TurkicLetter.UNDEFINED) {
+      return false;
+    }
+    if (!source.isVowel() || !target.isVowel()) {
+      return false;
+    }
+    return ((source.frontal && target.frontal) ||
+        (!source.frontal && !target.frontal)) &&
+        ((source.rounded && target.rounded) ||
+            (!source.rounded && !target.rounded));
   }
 
   /**
@@ -345,7 +530,7 @@ public class TurkishAlphabet {
   }
 
   /**
-   * Returns the vowel count in a word.
+   * Returns the vowel count in a word. It only checks Turkish vowels.
    */
   public int vowelCount(String s) {
     int result = 0;
@@ -357,6 +542,9 @@ public class TurkishAlphabet {
     return result;
   }
 
+  /**
+   * Returns true if `s` contains a digit. If s is empty or has no digit, returns false.
+   */
   public boolean containsDigit(String s) {
     if (s.isEmpty()) {
       return false;
@@ -370,8 +558,55 @@ public class TurkishAlphabet {
     return false;
   }
 
-  private boolean lookup(FixedBitVector vector, char c) {
-    return c < vector.length && vector.get(c);
+  /**
+   * Compares two strings ignoring diacritics symbols.
+   * <pre>
+   *   i, ı -> true
+   *   i, î -> true
+   *   s, ş -> true
+   *   g, ğ -> true
+   *   kişi, kışı -> true
+   * </pre>
+   */
+  public boolean equalsIgnoreDiacritics(String s1, String s2) {
+    if (s1 == null || s2 == null) {
+      return false;
+    }
+    if (s1.length() != s2.length()) {
+      return false;
+    }
+    for (int i = 0; i < s1.length(); i++) {
+      char c1 = s1.charAt(i);
+      char c2 = s2.charAt(i);
+      if (!isAsciiEqual(c1, c2)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /**
+   * Checks if s1 starts with s2 ignoring diacritics symbols.
+   * <pre>
+   *   kışı, kis -> true
+   *   pîr, pi   -> true
+   * </pre>
+   */
+  public boolean startsWithIgnoreDiacritics(String s1, String s2) {
+    if (s1 == null || s2 == null) {
+      return false;
+    }
+    if (s1.length() < s2.length()) {
+      return false;
+    }
+    for (int i = 0; i < s2.length(); i++) {
+      char c1 = s1.charAt(i);
+      char c2 = s2.charAt(i);
+      if (!isAsciiEqual(c1, c2)) {
+        return false;
+      }
+    }
+    return true;
   }
 
 }

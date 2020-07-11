@@ -10,7 +10,6 @@ import java.util.PriorityQueue;
 import java.util.Random;
 import zemberek.core.collections.IntVector;
 import zemberek.core.embeddings.Args.model_name;
-import zemberek.core.logging.Log;
 import zemberek.core.math.FloatArrays;
 
 class Model {
@@ -214,6 +213,9 @@ class Model {
     return -log(output_.data_[target]);
   }
 
+  // input[] is the word indexes.
+  // it creates a vector for hidden weights with size of [dimension]
+  // then sums all current word embeddings of input[] to this vector and averages it.
   Vector computeHidden(int[] input) {
     Vector hidden = new Vector(hsz_);
     for (int i : input) {
@@ -317,6 +319,9 @@ class Model {
   }
 
 
+  // input is word indexes of the sentence
+  // target is the label
+  // lr is the current learning rate.
   void update(int[] input, int target, float lr) {
     assert (target >= 0);
     assert (target < osz_);
@@ -489,7 +494,7 @@ class Model {
    * @param x input
    */
   private float stdLog(float x) {
-    return (float) Math.log(x + 1e-5);
+    return (float) Math.log(x + 1e-7);
   }
 
   private float sigmoid(float x) {

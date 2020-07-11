@@ -42,7 +42,7 @@ public class StemTransitionsTrieBased extends StemTransitionsBase implements Ste
     return lexicon;
   }
 
-  public List<StemTransition> getPrefixMatches(String stem) {
+  public List<StemTransition> getPrefixMatches(String stem, boolean asciiTolerant) {
     lock.readLock().lock();
     try {
       return stemTransitionTrie.getPrefixMatchingItems(stem);

@@ -8,33 +8,36 @@ import java.util.List;
 import zemberek.core.data.Weights;
 import zemberek.morphology.TurkishMorphology;
 import zemberek.morphology.ambiguity.PerceptronAmbiguityResolverTrainer.DataSet;
+import zemberek.morphology.lexicon.RootLexicon;
 
 public class PerceptronAmbiguityResolverEvaluation {
 
   public static void main(String[] args) throws IOException {
 
+    Path root = Paths.get("/media/ahmetaa/depo/ambiguity");
+
     List<Path> paths = Lists.newArrayList(
         Paths.get("data/gold/gold1.txt"),
-        Paths.get("data/ambiguity/www.aljazeera.com.tr-rule-result.txt"),
-        Paths.get("data/ambiguity/wowturkey.com-rule-result.txt"),
-        Paths.get("data/ambiguity/open-subtitles-rule-result.txt"),
-        Paths.get("data/ambiguity/sak.train"),
-        Paths.get("data/ambiguity/www.haberturk.com-rule-result.txt"),
-        Paths.get("data/ambiguity/www.cnnturk.com-rule-result.txt"));
+        root.resolve("www.aljazeera.com.tr-rule-result.txt"),
+        root.resolve("wowturkey.com-rule-result.txt"),
+        root.resolve("open-subtitles-tr-2018-rule-result.txt"),
+        root.resolve("sak.train"),
+        root.resolve("www.haberturk.com-rule-result.txt"),
+        root.resolve("www.cnnturk.com-rule-result.txt"));
 
-    Path dev = Paths.get("data/ambiguity/sak.dev");
+    Path dev = root.resolve("sak.dev");
     Path model = Paths.get("morphology/src/main/resources/tr/ambiguity/model");
     Path modelCompressed = Paths.get("morphology/src/main/resources/tr/ambiguity/model-compressed");
 
-    TurkishMorphology morphology = TurkishMorphology.builder().addTextDictionaryResources(
-        "tr/master-dictionary.dict",
-        "tr/non-tdk.dict",
-        "tr/proper.dict",
-        "tr/proper-from-corpus.dict",
-        "tr/abbreviations.dict",
-        "tr/person-names.dict",
-        "tr/locations-tr.dict"
-    ).build();
+    TurkishMorphology morphology = TurkishMorphology.create(
+        RootLexicon.builder().addTextDictionaryResources(
+            "tr/master-dictionary.dict",
+            "tr/non-tdk.dict",
+            "tr/proper.dict",
+            "tr/proper-from-corpus.dict",
+            "tr/abbreviations.dict",
+            "tr/person-names.dict"
+        ).build());
 
     DataSet trainingSet = new DataSet();
     for (Path path : paths) {
@@ -52,7 +55,7 @@ public class PerceptronAmbiguityResolverEvaluation {
 
     PerceptronAmbiguityResolver resolverRead =
         PerceptronAmbiguityResolver.fromModelFile(model);
-    Path test = Paths.get("data/ambiguity/sak.test");
+    Path test = root.resolve("sak.test");
     ((Weights) resolverRead.getModel()).compress().serialize(modelCompressed);
 
     PerceptronAmbiguityResolverTrainer.test(test, morphology, resolverRead);

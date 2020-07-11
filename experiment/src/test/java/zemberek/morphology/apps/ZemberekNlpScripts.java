@@ -23,7 +23,6 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
-import org.antlr.v4.runtime.Token;
 import org.junit.Ignore;
 import org.junit.Test;
 import zemberek.core.collections.Histogram;
@@ -44,7 +43,7 @@ import zemberek.morphology.lexicon.tr.TurkishDictionaryLoader;
 import zemberek.morphology.morphotactics.Morpheme;
 import zemberek.morphology.morphotactics.TurkishMorphotactics;
 import zemberek.tokenization.TurkishTokenizer;
-import zemberek.tokenization.antlr.TurkishLexer;
+import zemberek.tokenization.Token;
 
 public class ZemberekNlpScripts {
 
@@ -579,7 +578,7 @@ public class ZemberekNlpScripts {
     TurkishDictionaryLoader dictionaryLoader = new TurkishDictionaryLoader();
     //dictionaryLoader.load("elma");
     TurkishMorphology morphology =
-        TurkishMorphology.builder().addDictionaryLines("elma").disableCache().build();
+        TurkishMorphology.builder().setLexicon("elma").disableCache().build();
 
     Multimap<String, String> res = HashMultimap.create(100000, 3);
 
@@ -599,8 +598,8 @@ public class ZemberekNlpScripts {
         }
         List<DictionaryItem> items = new ArrayList<>(3);
 
-        items.add(dictionaryLoader.loadFromString(candidateRoot)); //assumes noun.
-        items.add(dictionaryLoader.loadFromString(candidateRoot + " [P:Verb]")); //assumes noun.
+        items.add(TurkishDictionaryLoader.loadFromString(candidateRoot)); //assumes noun.
+        items.add(TurkishDictionaryLoader.loadFromString(candidateRoot + " [P:Verb]")); //assumes noun.
         char last = candidateRoot.charAt(candidateRoot.length() - 1);
         if (i < s.length() - 1) {
           char next = s.charAt(candidateRoot.length());
@@ -617,7 +616,7 @@ public class ZemberekNlpScripts {
               f = candidateRoot.substring(0, candidateRoot.length() - 1) + 't';
             }
             if (f.length() > 0) {
-              items.add(dictionaryLoader.loadFromString(f));
+              items.add(TurkishDictionaryLoader.loadFromString(f));
             }
           }
         }
@@ -678,7 +677,7 @@ public class ZemberekNlpScripts {
     );
 
     TurkishMorphology analyzer = TurkishMorphology.builder()
-        .addTextDictionaryResources(TurkishDictionaryLoader.DEFAULT_DICTIONARY_RESOURCES)
+        .setLexicon(RootLexicon.getDefault())
         .disableUnidentifiedTokenAnalyzer()
         .disableCache()
         .build();
@@ -693,11 +692,11 @@ public class ZemberekNlpScripts {
     for (String line : lines) {
       List<Token> tokens = lexer.tokenize(line);
       tokenCount += tokens.stream()
-          .filter(s -> (s.getType() != TurkishLexer.SpaceTab))
+          .filter(s -> (s.getType() != Token.Type.SpaceTab))
           .count();
       tokenCountNoPunct += tokens.stream()
-          .filter(s -> (s.getType() != TurkishLexer.Punctuation
-              && s.getType() != TurkishLexer.SpaceTab))
+          .filter(s -> (s.getType() != Token.Type.Punctuation
+              && s.getType() != Token.Type.SpaceTab))
           .count();
     }
     long elapsed = clock.elapsed(TimeUnit.MILLISECONDS);
@@ -759,7 +758,7 @@ public class ZemberekNlpScripts {
     List<String> words = Files.readAllLines(Paths.get("dunya"));
     TurkishMorphology parser = TurkishMorphology
         .builder()
-        .addTextDictionaryResources(TurkishDictionaryLoader.DEFAULT_DICTIONARY_RESOURCES)
+        .setLexicon(RootLexicon.fromResources(TurkishDictionaryLoader.DEFAULT_DICTIONARY_RESOURCES))
         //.disableCache()
         //.disableUnidentifiedTokenAnalyzer()
         .build();

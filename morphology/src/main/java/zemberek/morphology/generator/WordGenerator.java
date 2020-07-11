@@ -72,7 +72,7 @@ public class WordGenerator {
       Morpheme morpheme = TurkishMorphotactics.getMorpheme(morphemeId);
       morphemes.add(morpheme);
     }
-    List<StemTransition> candidates = stemTransitions.getPrefixMatches(stem);
+    List<StemTransition> candidates = stemTransitions.getPrefixMatches(stem, false);
     return generate(stem, candidates, morphemes);
   }
 
@@ -106,7 +106,7 @@ public class WordGenerator {
     for (StemTransition candidate : candidates) {
       // we set the tail as " " because in morphotactics, some conditions look for tail's size
       // during graph walk. Because this is generation we let that condition pass always.
-      SearchPath searchPath = SearchPath.initialPath(candidate, candidate.surface, " ");
+      SearchPath searchPath = SearchPath.initialPath(candidate, " ");
       List<Morpheme> morphemesInPath;
       // if input morpheme starts with a POS Morpheme such as Noun etc,
       // we skip it if it matches with the initial morpheme of the graph visiting SearchPath object.
@@ -289,6 +289,11 @@ public class WordGenerator {
     public Result(String surface, SingleAnalysis analysis) {
       this.surface = surface;
       this.analysis = analysis;
+    }
+
+    @Override
+    public String toString() {
+      return surface + "-" + analysis;
     }
   }
 

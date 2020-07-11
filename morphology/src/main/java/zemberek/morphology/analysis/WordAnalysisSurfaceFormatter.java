@@ -1,5 +1,6 @@
 package zemberek.morphology.analysis;
 
+import java.util.Locale;
 import zemberek.core.turkish.PrimaryPos;
 import zemberek.core.turkish.RootAttribute;
 import zemberek.core.turkish.SecondaryPos;
@@ -18,19 +19,28 @@ public class WordAnalysisSurfaceFormatter {
   public String format(SingleAnalysis analysis, String apostrophe) {
     DictionaryItem item = analysis.getDictionaryItem();
     String ending = analysis.getEnding();
-    if (apostropheRequired(analysis)) {
-      return ending.length() > 0 ? item.lemma + apostrophe + ending : item.lemma;
+    if (apostrophe != null || apostropheRequired(analysis)) {
+      if (apostrophe == null) {
+        apostrophe = "'";
+      }
+      return ending.length() > 0 ?
+          item.normalizedLemma() + apostrophe + ending : item.normalizedLemma();
     } else {
       // because NoQuote is only used in Proper nouns, we can use the lemma. Otherwise root form is used
-      // because it may be different than DictionaryItem. For example lemma is `kitap` but root in analysis is
+      // because it may be different than DictionaryItem. For example lemma is `kitap` but stem in analysis is
       // `kitab`
       if (item.attributes.contains(RootAttribute.NoQuote)) {
-        return item.lemma + ending;
+        return item.normalizedLemma() + ending;
       } else {
         return analysis.getStem() + ending;
       }
     }
   }
+
+  public String format(SingleAnalysis analysis) {
+    return format(analysis, null);
+  }
+
 
   private boolean apostropheRequired(SingleAnalysis analysis) {
     DictionaryItem item = analysis.getDictionaryItem();
@@ -52,22 +62,27 @@ public class WordAnalysisSurfaceFormatter {
    */
   public String formatToCase(SingleAnalysis analysis, CaseType type, String apostrophe) {
     String formatted = format(analysis, apostrophe);
+    Locale locale = analysis.getDictionaryItem().hasAttribute(RootAttribute.LocaleEn) ?
+        Locale.ENGLISH : Turkish.LOCALE;
     switch (type) {
       case DEFAULT_CASE:
         return formatted;
       case LOWER_CASE:
-        return formatted.toLowerCase(Turkish.LOCALE);
+        return formatted.toLowerCase(locale);
       case UPPER_CASE:
-        return formatted.toUpperCase(Turkish.LOCALE);
+        return formatted.toUpperCase(locale);
       case TITLE_CASE:
         return Turkish.capitalize(formatted);
       case UPPER_CASE_ROOT_LOWER_CASE_ENDING:
         String ending = analysis.getEnding();
-        String lemmaUpper = analysis.getDictionaryItem().lemma.toUpperCase(Turkish.LOCALE);
+        String lemmaUpper = analysis.getDictionaryItem().normalizedLemma().toUpperCase(locale);
         if (ending.length() == 0) {
           return lemmaUpper;
         }
-        if (apostropheRequired(analysis)) {
+        if (apostrophe != null || apostropheRequired(analysis)) {
+          if (apostrophe == null) {
+            apostrophe = "'";
+          }
           return lemmaUpper + apostrophe + ending;
         } else {
           return lemmaUpper + ending;
@@ -77,9 +92,15 @@ public class WordAnalysisSurfaceFormatter {
     }
   }
 
+  public String formatToCase(SingleAnalysis analysis, CaseType type) {
+    return formatToCase(analysis, type, null);
+  }
+
+
   //TODO: write tests.
   public boolean canBeFormatted(SingleAnalysis analysis, CaseType type) {
-    boolean proper = analysis.getDictionaryItem().secondaryPos == SecondaryPos.ProperNoun;
+    boolean proper = analysis.getDictionaryItem().secondaryPos == SecondaryPos.ProperNoun ||
+        analysis.getDictionaryItem().secondaryPos == SecondaryPos.Abbreviation;
     switch (type) {
       case LOWER_CASE:
         return !proper;
@@ -96,6 +117,7 @@ public class WordAnalysisSurfaceFormatter {
 
   /**
    * Guesses the current case type of the word.
+   * <pre>
    * for example,
    * "ankaraya"  -> CaseType.LOWER_CASE
    * "Ankara'ya" -> CaseType.TITLE_CASE
@@ -106,6 +128,7 @@ public class WordAnalysisSurfaceFormatter {
    * "12'de"     -> CaseType.LOWER_CASE
    * "A"         -> CaseType.UPPER_CASE
    * "A1"        -> CaseType.UPPER_CASE
+   * </pre>
    *
    * @param input input word
    * @return guessed CaseType

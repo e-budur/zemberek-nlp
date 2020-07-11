@@ -14,7 +14,6 @@ import java.util.List;
 import java.util.PriorityQueue;
 import java.util.Set;
 import java.util.stream.Collectors;
-import org.antlr.v4.runtime.Token;
 import zemberek.core.ScoredItem;
 import zemberek.core.collections.Histogram;
 import zemberek.core.embeddings.Args;
@@ -27,7 +26,7 @@ import zemberek.corpus.WebCorpus;
 import zemberek.corpus.WebDocument;
 import zemberek.tokenization.TurkishSentenceExtractor;
 import zemberek.tokenization.TurkishTokenizer;
-import zemberek.tokenization.antlr.TurkishLexer;
+import zemberek.tokenization.Token;
 
 public class DocumentSimilarityExperiment {
 
@@ -63,7 +62,7 @@ public class DocumentSimilarityExperiment {
       }
       String str = doc.getContentAsString();
       str = str.length() > 200 ? str.substring(0, 200) : str;
-      float[] vec = fastText.textVector(str).clone();
+      float[] vec = fastText.sentenceVector(str).clone();
       //float[] vec = fastText.textVectors(doc.getLines()).data_.clone();
       sims.add(new DocumentSimilarity(doc, vec));
     }
@@ -110,7 +109,7 @@ public class DocumentSimilarityExperiment {
   public List<ScoredItem<WebDocument>> nearestK(DocumentSimilarity source,
       List<DocumentSimilarity> sims, int k) {
     PriorityQueue<ScoredItem<WebDocument>> queue = new PriorityQueue<>(k,
-        (a, b) -> Double.compare(a.score, b.score));
+        Comparator.comparingDouble(a -> a.score));
 
     for (DocumentSimilarity sim : sims) {
       // skip self.
@@ -247,13 +246,13 @@ public class DocumentSimilarityExperiment {
     List<Token> tokens = lexer.tokenize(input);
     List<String> reduced = new ArrayList<>();
     for (Token token : tokens) {
-      if (token.getType() == TurkishLexer.PercentNumeral ||
-          token.getType() == TurkishLexer.Number ||
+      if (token.getType() == Token.Type.PercentNumeral ||
+          token.getType() == Token.Type.Number ||
           //token.getType() == TurkishLexer.Punctuation ||
-          token.getType() == TurkishLexer.RomanNumeral ||
-          token.getType() == TurkishLexer.Time ||
-          token.getType() == TurkishLexer.UnknownWord ||
-          token.getType() == TurkishLexer.Unknown) {
+          token.getType() == Token.Type.RomanNumeral ||
+          token.getType() == Token.Type.Time ||
+          token.getType() == Token.Type.UnknownWord ||
+          token.getType() == Token.Type.Unknown) {
         continue;
       }
       String tokenStr = token.getText();

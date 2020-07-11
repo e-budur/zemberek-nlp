@@ -68,8 +68,6 @@ public class NounDerivationTest extends AnalyzerTestBase {
         matchesTailLex("Noun + A3sg + JustLike + Adj"));
     tester.expectAny("zeytinyağsı",
         matchesTailLex("Noun + A3sg + JustLike + Adj"));
-
-
   }
 
   // check for
@@ -189,7 +187,7 @@ public class NounDerivationTest extends AnalyzerTestBase {
 
   @Test
   public void noun2NounIncorrect_1() {
-    InterpretingAnalyzer analyzer = getAnalyzer("kitap");
+    RuleBasedAnalyzer analyzer = getAnalyzer("kitap");
     expectFail(analyzer,
         "kitaplarcık", "kitapçıklarcık", "kitapçığ", "kitapcık", "kitabımcık",
         "kitaptacık", "kitapçıkçık", "kitabcığ", "kitabçığ", "kitabçık", "kitapçığ"
@@ -320,7 +318,7 @@ public class NounDerivationTest extends AnalyzerTestBase {
 
   @Test
   public void expectsSingleResult2() {
-    InterpretingAnalyzer analyzer = getAnalyzer("elma");
+    RuleBasedAnalyzer analyzer = getAnalyzer("elma");
     expectSuccess(analyzer, 1, "elmayım");
     expectSuccess(analyzer, 1, "elmaydım");
     expectSuccess(analyzer, 1, "elmayımdır");
@@ -334,7 +332,7 @@ public class NounDerivationTest extends AnalyzerTestBase {
 
   @Test
   public void incorrect2() {
-    InterpretingAnalyzer analyzer = getAnalyzer("elma");
+    RuleBasedAnalyzer analyzer = getAnalyzer("elma");
     expectFail(analyzer,
         "elmaydıdır",
         "elmayıdır",
@@ -508,8 +506,44 @@ public class NounDerivationTest extends AnalyzerTestBase {
         matchesTailLex("Zero + Verb + Narr + A3sg + AsIf + Adv"));
     tester.expectSingle("dostmuşlarcasına",
         matchesTailLex("Zero + Verb + Narr + A3pl + AsIf + Adv"));
-
   }
 
+  /**
+   * Test for Issue 170. After justlike derivation, P2sg should not be allowed. Such as: "güzelsin"
+   */
+  @Test
+  public void justlikeTest_Issue_170() {
+    AnalysisTester tester = getTester("güzel [P:Adj]");
+    // no Justlike+Noun+A3sg+P2sg allowed
+    tester.expectSingle("güzelsin", matchesTailLex("Zero + Verb + Pres + A2sg"));
+    tester = getTester("odun");
+    // no Justlike+Adj+Zero+A3sg+P2sg allowed
+    tester.expectSingle("odunsun", matchesTailLex("Noun + A3sg + Zero + Verb + Pres + A2sg"));
+  }
+
+  /**
+   * Test for Issue 167. For adjective to noun derivation like `mor-luk` two analysis was produced.
+   * One was redundant.
+   */
+  @Test
+  public void nessTest_Issue_167() {
+    AnalysisTester tester = getTester("mor [P:Adj]");
+    // no Adj|Zero→Noun+A3sg|luk:Ness→Noun+A3sg
+    tester.expectSingle("morluk", matchesTailLex("Adj + Ness + Noun + A3sg"));
+  }
+
+  /**
+   * Test for Issue 184 : Cannot analyze `abimsin` or any Noun+..+P1sg+..+Verb+..+A2sg
+   */
+  @Test
+  public void A2sgVerbAfterP1sgNounTest_Issue_184() {
+    AnalysisTester tester = getTester("abi");
+    tester.expectSingle(
+        "abimsin", matchesTailLex("Noun + A3sg + P1sg + Zero + Verb + Pres + A2sg"));
+    tester.expectSingle(
+        "abimsiniz", matchesTailLex("Noun + A3sg + P1sg + Zero + Verb + Pres + A2pl"));
+    tester.expectSingle(
+        "abinim", matchesTailLex("Noun + A3sg + P2sg + Zero + Verb + Pres + A1sg"));
+  }
 
 }

@@ -3,42 +3,15 @@
   <parent>
     <artifactId>zemberek-nlp</artifactId>
     <groupId>zemberek-nlp</groupId>
-    <version>0.15.0</version>
+    <version>0.17.1</version>
   </parent>
   <modelVersion>4.0.0</modelVersion>
-  <artifactId>zemberek-all</artifactId>
+  <artifactId>zemberek-lo</artifactId>
   <build>
     <plugins>
       <plugin>
-        <artifactId>maven-jar-plugin</artifactId>
-      </plugin>
-      <plugin>
-        <artifactId>maven-assembly-plugin</artifactId>
-        <executions>
-          <execution>
-            <id>make-assembly</id>
-            <phase>package</phase>
-            <goals>
-              <goal>single</goal>
-            </goals>
-          </execution>
-        </executions>
-        <configuration>
-          <descriptorRefs>
-            <descriptorRef>jar-with-dependencies</descriptorRef>
-          </descriptorRefs>
-          <finalName>zemberek-full</finalName>
-          <appendAssemblyId>false</appendAssemblyId>
-          <archive>
-            <manifest>
-              <mainClass>zemberek.apps.ApplicationRunner</mainClass>
-            </manifest>
-          </archive>
-        </configuration>
-      </plugin>
-      <plugin>
         <artifactId>maven-shade-plugin</artifactId>
-        <version>2.4.3</version>
+        <version>3.2.0</version>
         <executions>
           <execution>
             <phase>package</phase>
@@ -46,16 +19,28 @@
               <goal>shade</goal>
             </goals>
             <configuration>
-              <artifactSet>
-                <excludes>
-                  <exclude>junit:junit</exclude>
-                  <exclude>args4j:args4j</exclude>
-                  <exclude>com.google*</exclude>
-                  <exclude>org.antlr*</exclude>
-                  <exclude>hamcrest-all:hamcrest-all</exclude>
-                  <exclude>mockito-all:mockito-all</exclude>
-                </excludes>
-              </artifactSet>
+              <relocations>
+                <relocation>
+                  <pattern>org</pattern>
+                  <shadedPattern>_zem.org</shadedPattern>
+                </relocation>
+                <relocation>
+                  <pattern>google</pattern>
+                  <shadedPattern>_zem.google</shadedPattern>
+                </relocation>
+                <relocation>
+                  <pattern>com</pattern>
+                  <shadedPattern>_zem.com</shadedPattern>
+                </relocation>
+                <relocation>
+                  <pattern>afu</pattern>
+                  <shadedPattern>_zem.afu</shadedPattern>
+                </relocation>
+                <relocation>
+                  <pattern>javax</pattern>
+                  <shadedPattern>_zem.javax</shadedPattern>
+                </relocation>
+              </relocations>
             </configuration>
           </execution>
         </executions>
@@ -63,12 +48,6 @@
     </plugins>
   </build>
   <dependencies>
-    <dependency>
-      <groupId>com.google.guava</groupId>
-      <artifactId>guava</artifactId>
-      <version>25.1-jre</version>
-      <scope>compile</scope>
-    </dependency>
     <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
@@ -99,12 +78,5 @@
       <version>1.7.0</version>
       <scope>test</scope>
     </dependency>
-    <dependency>
-      <groupId>com.google.protobuf</groupId>
-      <artifactId>protobuf-java</artifactId>
-      <version>3.4.0</version>
-      <scope>compile</scope>
-    </dependency>
   </dependencies>
 </project>
-

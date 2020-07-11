@@ -12,7 +12,7 @@ public interface StemTransitions {
 
   RootLexicon getLexicon();
 
-  List<StemTransition> getPrefixMatches(String stem);
+  List<StemTransition> getPrefixMatches(String stem, boolean asciiTolerant);
 
   List<StemTransition> getTransitions(DictionaryItem item);
 

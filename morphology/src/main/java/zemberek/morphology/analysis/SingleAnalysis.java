@@ -6,7 +6,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
-import zemberek.core.logging.Log;
 import zemberek.core.turkish.PrimaryPos;
 import zemberek.core.turkish.RootAttribute;
 import zemberek.core.turkish.StemAndEnding;
@@ -46,6 +45,12 @@ public class SingleAnalysis {
 
   public static SingleAnalysis unknown(String input) {
     DictionaryItem item = DictionaryItem.UNKNOWN;
+    MorphemeData s = new MorphemeData(Morpheme.UNKNOWN, input);
+    int[] boundaries = {0};
+    return new SingleAnalysis(item, Collections.singletonList(s), boundaries);
+  }
+
+  public static SingleAnalysis dummy(String input, DictionaryItem item) {
     MorphemeData s = new MorphemeData(Morpheme.UNKNOWN, input);
     int[] boundaries = {0};
     return new SingleAnalysis(item, Collections.singletonList(s), boundaries);
@@ -103,6 +108,10 @@ public class SingleAnalysis {
       return sb.toString();
     }
 
+  }
+
+  public boolean containsInformalMorpheme() {
+    return getMorphemes().stream().anyMatch(m -> m.informal);
   }
 
   int getMorphemeGroupCount() {
@@ -324,6 +333,15 @@ public class SingleAnalysis {
     return new SingleAnalysis(item, morphemes, groupBoundaries);
   }
 
+  public boolean containsAnyMorpheme(Morpheme... morphemes) {
+    for (Morpheme morpheme : morphemes) {
+      if (containsMorpheme(morpheme)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   /**
    * This method is used for modifying the dictionary item and stem of an analysis without changing
    * the suffix morphemes. This is used for generating result for inputs like "5'e"
@@ -397,10 +415,10 @@ public class SingleAnalysis {
         MorphemeData suffixData = ig.morphemes.get(0);
 
         String surface = suffixData.surface;
-        if (suffixData.surface.endsWith("ğ")) {
-          surface = surface.substring(0, surface.length() - 1) + "k";
-        }
         String stem = previousStem + surface;
+        if (stem.endsWith("ğ")) {
+          stem = stem.substring(0, stem.length() - 1) + "k";
+        }
         if (!lemmas.contains(stem)) {
           lemmas.add(stem);
         }

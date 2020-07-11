@@ -6,7 +6,6 @@ import org.junit.Test;
 
 public class NounsTest extends AnalyzerTestBase {
 
-
   @Test
   public void implicitDative_1() {
     AnalysisTester t = getTester("içeri [A:ImplicitDative]");
@@ -36,7 +35,7 @@ public class NounsTest extends AnalyzerTestBase {
 
   @Test
   public void lastVowelDropExceptionTest() {
-    AnalysisTester t = getTester("içeri [A:ImplicitDative, Special]");
+    AnalysisTester t = getTester("içeri [A:ImplicitDative]");
 
     t.expectAny("içeri", matchesTailLex("Noun + A3sg + Dat"));
     t.expectAny("içeride", matchesTailLex("Noun + A3sg + Loc"));
@@ -304,21 +303,21 @@ public class NounsTest extends AnalyzerTestBase {
 
   @Test
   public void family1() {
-    InterpretingAnalyzer analyzer = getAnalyzer(
+    RuleBasedAnalyzer analyzer = getAnalyzer(
         "annemler [A:ImplicitPlural,ImplicitP1sg,FamilyMember]");
     expectFail(analyzer, "annemlerler", "annemlerim");
   }
 
   @Test
   public void family2() {
-    InterpretingAnalyzer analyzer = getAnalyzer(
+    RuleBasedAnalyzer analyzer = getAnalyzer(
         "annemler [A:ImplicitPlural,ImplicitP1sg,FamilyMember]");
     expectSuccess(analyzer, 1, "annemler", "annemlere", "annemleri");
   }
 
   @Test
   public void family3() {
-    InterpretingAnalyzer analyzer = getAnalyzer(
+    RuleBasedAnalyzer analyzer = getAnalyzer(
         "annemler [A:ImplicitPlural,ImplicitP1sg,FamilyMember]");
     String in = "annemleri";
     List<SingleAnalysis> results = analyzer.analyze(in);
@@ -353,7 +352,7 @@ public class NounsTest extends AnalyzerTestBase {
 
   @Test
   public void uzeri() {
-    InterpretingAnalyzer analyzer = getAnalyzer(
+    RuleBasedAnalyzer analyzer = getAnalyzer(
         "üzeri [A:CompoundP3sg;Roots:üzer]");
     String in = "üzeri";
     List<SingleAnalysis> results = analyzer.analyze(in);

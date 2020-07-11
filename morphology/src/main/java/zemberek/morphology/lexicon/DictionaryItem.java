@@ -41,9 +41,9 @@ public class DictionaryItem {
   public final String pronunciation;
 
   /**
-   * This is the unique ID of the item.
-   * It is generated from Pos and lemma. If there are multiple items with same POS and Lemma
-   * user needs to add an index for distinction. Structure of the ID: lemma_POS or lemma_POS_index
+   * This is the unique ID of the item. It is generated from Pos and lemma. If there are multiple
+   * items with same POS and Lemma user needs to add an index for distinction. Structure of the ID:
+   * lemma_POS or lemma_POS_index
    */
   public String id;
 
@@ -67,7 +67,8 @@ public class DictionaryItem {
     this.id = generateId(lemma, primaryPos, secondaryPos, 0);
   }
 
-  public DictionaryItem(String lemma,
+  public DictionaryItem(
+      String lemma,
       String root,
       String pronunciation,
       PrimaryPos primaryPos,
@@ -114,7 +115,7 @@ public class DictionaryItem {
     this.id = generateId(lemma, primaryPos, secondaryPos, 0);
   }
 
-  private String generateId(String lemma, PrimaryPos pos, SecondaryPos spos, int index) {
+  public static String generateId(String lemma, PrimaryPos pos, SecondaryPos spos, int index) {
     StringBuilder sb = new StringBuilder(lemma).append("_").append(pos.shortForm);
     if (spos != null && spos != SecondaryPos.None) {
       sb.append("_").append(spos.shortForm);
@@ -143,15 +144,18 @@ public class DictionaryItem {
 
   public boolean hasAnyAttribute(RootAttribute... attributes) {
     for (RootAttribute attribute : attributes) {
-      if(this.attributes.contains(attribute)) {
+      if (this.attributes.contains(attribute)) {
         return true;
       }
     }
     return false;
   }
 
+  /**
+   * @return if this is a Verb, removes -mek -mak suffix. Otherwise returns the `lemma`
+   */
   public String normalizedLemma() {
-    return lemma.toLowerCase(Turkish.LOCALE);
+    return primaryPos == PrimaryPos.Verb ? lemma.substring(0, lemma.length() - 3) : lemma;
   }
 
   public String getId() {

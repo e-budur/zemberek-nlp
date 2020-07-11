@@ -7,7 +7,6 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -117,10 +116,10 @@ public class DistanceBasedStemmer {
           normalize(swaList.get(i - 1).getWordAnalysis().getInput()),
           normalize(swaList.get(i + 1).getWordAnalysis().getInput()));
 
-      Set<String> stems = new HashSet<>();
       WordAnalysis wordResults = swa.getWordAnalysis();
-      stems.addAll(
-          wordResults.stream().map(a -> normalize(a.getDictionaryItem().lemma)).collect(Collectors.toList()));
+      Set<String> stems = wordResults.stream()
+          .map(a -> normalize(a.getDictionaryItem().lemma))
+          .collect(Collectors.toSet());
       List<ScoredItem<String>> scores = new ArrayList<>();
       for (String stem : stems) {
         if (!distances.containsWord(stem)) {

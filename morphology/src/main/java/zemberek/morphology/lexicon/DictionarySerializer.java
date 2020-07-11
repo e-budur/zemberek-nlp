@@ -9,10 +9,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
-import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.HashMap;
-import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 import zemberek.core.enums.EnumConverter;
@@ -36,11 +35,8 @@ public class DictionarySerializer {
       EnumConverter.createConverter(RootAttribute.class, LexiconProto.RootAttribute.class);
 
   public static RootLexicon loadFromResources(String resourcePathString) throws IOException {
-    long start = System.currentTimeMillis();
     try (InputStream is = DictionarySerializer.class.getResourceAsStream(resourcePathString)) {
       byte[] bytes = ByteStreams.toByteArray(is);
-      long end = System.currentTimeMillis();
-      Log.info("Binary lexicon read from resource in %d ms.", (end - start));
       return getDictionaryItems(bytes);
     }
   }
@@ -51,9 +47,10 @@ public class DictionarySerializer {
   }
 
   public static void createDefaultDictionary(Path path) throws IOException {
-    TurkishMorphology morphology = TurkishMorphology.builder()
-        .addTextDictionaryResources(TurkishDictionaryLoader.DEFAULT_DICTIONARY_RESOURCES).build();
-    save(morphology.getLexicon(), path);
+    RootLexicon lexicon = RootLexicon.builder()
+        .addTextDictionaryResources(TurkishDictionaryLoader.DEFAULT_DICTIONARY_RESOURCES)
+        .build();
+    save(lexicon, path);
   }
 
   private static RootLexicon getDictionaryItems(byte[] bytes)
@@ -110,7 +107,7 @@ public class DictionarySerializer {
     }
     Dictionary dictionary = builder.build();
     System.out.println("Total size of serialized dictionary: " + dictionary.getSerializedSize());
-    Path f = Files.createTempFile("lexicon",".bin");
+    Path f = Files.createTempFile("lexicon", ".bin");
     BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(f.toFile()));
     bos.write(dictionary.toByteArray());
     bos.close();
@@ -167,20 +164,21 @@ public class DictionarySerializer {
   }
 
   private static DictionaryItem convertToDictionaryItem(LexiconProto.DictionaryItem item) {
-    List<RootAttribute> rootAttributes = new ArrayList<>();
+    EnumSet<RootAttribute> attributes = EnumSet.noneOf(RootAttribute.class);
     for (LexiconProto.RootAttribute rootAttribute : item.getRootAttributesList()) {
-      rootAttributes.add(rootAttributeConverter.convertBack(rootAttribute, RootAttribute.Unknown));
+      attributes.add(rootAttributeConverter.convertBack(rootAttribute, RootAttribute.Unknown));
     }
-    String lowercaseLemma = item.getLemma().toLowerCase(Turkish.LOCALE);
-    return new DictionaryItem(item.getLemma(),
+    Locale locale = attributes.contains(RootAttribute.LocaleEn) ? Locale.ENGLISH : Turkish.LOCALE;
+    String lowercaseLemma = item.getLemma().toLowerCase(locale);
+    return new DictionaryItem(
+        item.getLemma(),
         item.getRoot().isEmpty() ? lowercaseLemma : item.getRoot(),
         item.getPronunciation().isEmpty() ? lowercaseLemma : item.getPronunciation(),
         primaryPosConverter.convertBack(item.getPrimaryPos(), PrimaryPos.Unknown),
         item.getSecondaryPos() == LexiconProto.SecondaryPos.SecondaryPos_Unknown
             ? SecondaryPos.None
             : secondaryPosConverter.convertBack(item.getSecondaryPos(), SecondaryPos.UnknownSec),
-        !rootAttributes.isEmpty() ? EnumSet.copyOf(rootAttributes)
-            : EnumSet.noneOf(RootAttribute.class),
+        attributes,
         item.getIndex());
   }
 

@@ -1,7 +1,5 @@
 package zemberek.core.text;
 
-import com.google.common.base.Splitter;
-import java.io.BufferedInputStream;
 import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -20,13 +18,13 @@ import java.util.zip.GZIPInputStream;
 
 public class TextIO {
 
-  public static final Splitter SPACE_SPLITTER = Splitter.on(" ").omitEmptyStrings().trimResults();
-  public static final Splitter COMMA_SPLITTER = Splitter.on(",").omitEmptyStrings().trimResults();
-
   public static String loadUtfAsString(Path filePath) throws IOException {
     return String.join("\n", Files.readAllLines(filePath, StandardCharsets.UTF_8));
   }
 
+  /**
+   * Loads lines from a UTF-8 encoded text file. Ignores empty lines.
+   */
   public static List<String> loadLines(Path path) throws IOException {
     return Files.readAllLines(path, StandardCharsets.UTF_8)
         .stream()

@@ -1,17 +1,32 @@
 Turkish Morphology
 ============
 
+  * [Morphology](#morphology)
+    + [Maven Usage](#maven-usage)
+    + [Creating TurkishMorphology object](#creating-turkishmorphology-object)
+    + [Single word morphological analysis](#single-word-morphological-analysis)
+    + [Examples](#examples)
+    + [Stemming and Lemmatization Example](#stemming-and-lemmatization-example)
+    + [Known Issues](#known-issues)
+    + [Informal Turkish Words Analysis](#informal-turkish-words-analysis)
+    + [Diacritics Ignored Analysis](#diacritics-ignored-analysis)
+  * [Ambiguity Resolution](#ambiguity-resolution)
+    + [Example](#example)
+    + [Known Issues](#known-issues-1)
+  * [Word Generation](#word-generation)
+    + [Example](#example-1)
+
 ## Morphology
 
 Turkish is a morphologically rich language. 
-Project provides morphological analysis, morphological ambiguity resolution and word generation functions.
+Zemberek provides morphological analysis, morphological ambiguity resolution and word generation functions.
 
-## Maven Usage
+### Maven Usage
  
     <dependency>
         <groupId>zemberek-nlp</groupId>
         <artifactId>zemberek-morphology</artifactId>
-        <version>0.12.0</version>
+        <version>0.17.1</version>
     </dependency>
  
 
@@ -27,7 +42,7 @@ After this, Turkish suffix graph is generated, internal dictionaries are loaded 
  a single instance should be used throughout the life of an application.
   
   You can add your own dictionaries or remove existing items during creation of the TurkishMorphology class. For example, you have
-  a dictionary file *my-dictionary.txt* in this form:
+  a dictionary file *my-dictionary.txt* in this form (albeit terrible words):
   
     show 
     relaks [P:Adj]
@@ -36,16 +51,37 @@ After this, Turkish suffix graph is generated, internal dictionaries are loaded 
     
 Dictionary rules are explained [here](https://github.com/ahmetaa/zemberek-nlp/wiki/Text-Dictionary-Rules)
 
-For adding this dictionary, builder mechanism is used for instantiation:
+For adding this dictionary, RootLexicon builder mechanism can be used like this:
   
+    RootLexicon lexicon = RootLexicon.builder()
+        .addDefaultLexicon()
+        .addTextDictionaries(Paths.get("my-dictionary.txt"))
+        .build();
+
     TurkishMorphology analyzer = TurkishMorphology.builder()
-            .addDefaultDictionaries()
-            .addTextDictionaries(new File("my-dictionary.txt"))
-            .build();
+        .setLexicon(lexicon)
+        .build();
+
+Or alternatively:
+        
+    TurkishMorphology analyzer = TurkishMorphology.create(lexicon);
   
 There are other options available for building the object.
 Turkish morphology class contain a built in cache, so in time analysis speed will get faster. There 
-is an option to disable the cache if builder mechanism is used.  
+is an option to disable the cache if builder mechanism is used. For example:
+
+    TurkishMorphology analyzer = TurkishMorphology.builder()
+        .setLexicon(RootLexicon.getDefault())
+        .disableCache()
+        .build();
+
+Generating your own dictionary can be liked this:
+
+      RootLexicon myLexicon = RootLexicon.builder()
+          .setLexicon(RootLexicon.getDefault) // start with default
+          .addDictionaryLines("foo", "rar") // add two new nouns
+          .addTextDictionaries(Paths.get("my-own-dictionary-file")) // add from file
+          .build();
 
 ### Single word morphological analysis
 
@@ -114,6 +150,86 @@ Finds all morphological analyses, stems and lemmas of word "kitabımızsa"
  - Some words may not get analyzed correctly.
  - Words with circumflex letters may have problems.
  - Proper noun and Abbreviations may not be analyzed correctly
+ 
+### Informal Turkish Words Analysis
+
+As of version 0.16.0, There is a mechanism for analyzing Turkish informal words. For example, word `okuycam`, analysis:
+
+    [okumak:Verb] oku:Verb+yca:Fut_Informal+m:A1sg   
+
+Informal morpheme names (like `Fut_Informal`) have `_Informal` suffix. 
+
+For enabling informal morphological analysis, TurkishMorphology class should be initialized like this:
+
+    TurkishMorphology morphology = TurkishMorphology.builder()        
+        .setLexicon(RootLexicon.DEFAULT)
+        .useInformalAnalysis()
+        .build();
+
+    morphology.analyzeAndDisambiguate("vurucam kırbacı")
+        .bestAnalysis()
+        .forEach(System.out::println);
+
+Output:
+
+    [vurmak:Verb] vur:Verb+uca:Fut_Informal+m:A1sg
+    [kırbaç:Noun] kırbac:Noun+A3sg+ı:P3sg
+        
+Note that 
+ambiguity resolution mechanism may not work well if sentence contains informal morphemes. 
+There is also a simple informal to formal conversion mechanism `InformalAnalysisConverter` that
+generates formal surface form of an informal word analysis. 
+
+For example lets assume we used the TurkishMorhology instance created in the previous example:
+
+    List<SingleAnalysis> analyses = morphology
+            .analyzeAndDisambiguate("okuycam diyo")
+            .bestAnalysis();
+
+    for (SingleAnalysis a : analyses) {
+      System.out.println(a.surfaceForm() + "-" + a);
+    }
+
+    System.out.println("Converting formal surface form:");
+
+    InformalAnalysisConverter converter =
+        new InformalAnalysisConverter(morphology.getWordGenerator());
+
+    for (SingleAnalysis a : analyses) {
+      System.out.println(converter.convert(a.surfaceForm(), a));
+    }
+
+Result will be:
+
+    okuycam-[okumak:Verb] oku:Verb+yca:Fut_Informal+m:A1sg
+    diyo-[demek:Verb] di:Verb+yo:Prog1_Informal+A3sg
+    
+    Converting formal surface form:
+    
+    okuyacağım-[okumak:Verb] oku:Verb+yacağ:Fut+ım:A1sg
+    diyor-[demek:Verb] di:Verb+yor:Prog1+A3sg
+
+Informal Analysis is still experimental and only some cases are covered.
+
+### Diacritics Ignored Analysis
+
+Morphological analysis can be configured to ignore Turkish diacritics marks as used in characters
+**[ç,ğ,i,ö,ü,ş]** For that purpose ignoreDiacriticsInAnalysis() method is used. For example:
+
+    TurkishMorphology morphology = TurkishMorphology.builder()        
+        .setLexicon(RootLexicon.DEFAULT)
+        .ignoreDiacriticsInAnalysis()
+        .build();
+
+    morphology.analyze("kisi").forEach(System.out::println);
+    
+Output will be:    
+
+    [kış:Noun,Time] kış:Noun+A3sg+ı:Acc
+    [kış:Noun,Time] kış:Noun+A3sg+ı:P3sg
+    [kişi:Noun] kişi:Noun+A3sg
+
+Note that same output will be generated for inputs "kısı, kışi, kişi, kışı" etc.    
 
 ## Ambiguity Resolution
 
@@ -170,7 +286,6 @@ Output:
     [kar:Noun] kar:Noun+A3sg
     [yağmak:Verb] yağ:Verb+acak:Fut+A3sg
     [.:Punc] .:Punc
-
 
 ### Known Issues
 
@@ -233,4 +348,3 @@ Output:
     armutlarına
     armutlarında
     armutlarından
-

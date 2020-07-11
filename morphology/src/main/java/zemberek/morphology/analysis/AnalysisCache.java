@@ -9,18 +9,18 @@ import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
-import org.antlr.v4.runtime.Token;
 import zemberek.core.logging.Log;
 import zemberek.core.text.TextIO;
+import zemberek.tokenization.Token;
 
 /**
  * A simple analysis cache. Can be shared between threads.
  */
 public class AnalysisCache {
 
-  private static final int STATIC_CACHE_CAPACITY = 3000;
-  private static final int DEFAULT_INITIAL_DYNAMIC_CACHE_CAPACITY = 1000;
-  private static final int DEFAULT_MAX_DYNAMIC_CACHE_CAPACITY = 10000;
+  private static final int STATIC_CACHE_CAPACITY = 5000;
+  private static final int DEFAULT_INITIAL_DYNAMIC_CACHE_CAPACITY = 3000;
+  private static final int DEFAULT_MAX_DYNAMIC_CACHE_CAPACITY = 30_000;
   private static final int DYNAMIC_CACHE_CAPACITY_LIMIT = 1_000_000;
 
   private static final String MOST_USED_WORDS_FILE = "/tr/first-10K";
@@ -32,14 +32,7 @@ public class AnalysisCache {
   private boolean staticCacheDisabled;
   private boolean dynamicCacheDisabled;
 
-  public static AnalysisCache DEFAULT_INSTANCE = Singleton.Instance.cache;
-
-  private enum Singleton {
-    Instance;
-    AnalysisCache cache = new AnalysisCache(new Builder());
-  }
-
-  private AnalysisCache(Builder builder) {
+  AnalysisCache(Builder builder) {
 
     this.dynamicCacheDisabled = builder._disableDynamicCache;
     this.staticCacheDisabled = builder._disableStaticCache;
@@ -64,14 +57,14 @@ public class AnalysisCache {
     boolean _disableStaticCache = false;
     boolean _disableDynamicCache = false;
 
-    Builder staticCacheSize(int staticCacheSize) {
+    public Builder staticCacheSize(int staticCacheSize) {
       Preconditions.checkArgument(staticCacheSize >= 0,
           "Static cache size cannot be negative. But it is %d", staticCacheSize);
       this._staticCacheSize = staticCacheSize;
       return this;
     }
 
-    Builder dynamicCacheSize(int initial, int max) {
+    public Builder dynamicCacheSize(int initial, int max) {
       Preconditions.checkArgument(initial >= 0,
           "Dynamic cache initial size cannot be negative. But it is %d", initial);
       Preconditions.checkArgument(max >= 0,
@@ -84,14 +77,18 @@ public class AnalysisCache {
       return this;
     }
 
-    Builder disableStaticCache() {
+    public Builder disableStaticCache() {
       this._disableStaticCache = true;
       return this;
     }
 
-    Builder disableDynamicCache() {
+    public Builder disableDynamicCache() {
       this._disableDynamicCache = true;
       return this;
+    }
+
+    public AnalysisCache build() {
+      return new AnalysisCache(this);
     }
   }
 
